@@ -1,0 +1,20 @@
+/* Add your custom styles here */
+.gradient-text {
+  background: linear-gradient(90deg, #22c55e, #3b82f6);
+  background: -webkit-linear-gradient(90deg, #22c55e, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.blur-active {
+  filter: blur(5px);
+  pointer-events: none; /* Disable interactions with blurred content */
+}
+
+.genium-logo-width {
+  font-size: 1.8rem; /* Increased font size for the logo/name */
+  width: auto; /* Remove fixed width to allow font-size to control width */
+}
+
