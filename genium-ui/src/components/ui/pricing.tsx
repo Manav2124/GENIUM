@@ -51,7 +51,7 @@ export function PricingSection({
 	return (
 		<div
 			className={cn(
-				'flex w-full flex-col items-center justify-center space-y-5 p-4',
+				'flex w-full flex-col items-center justify-center space-y-16 p-4',
 				props.className,
 			)}
 			{...props}
@@ -70,7 +70,7 @@ export function PricingSection({
 				frequency={frequency}
 				setFrequency={setFrequency}
 			/>
-			<div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-4 md:grid-cols-3">
+			<div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-8 md:grid-cols-3">
 				{plans.map((plan) => (
 					<PricingCard plan={plan} key={plan.name} frequency={frequency} />
 				))}
@@ -92,7 +92,7 @@ export function PricingFrequencyToggle({
 	return (
 		<div
 			className={cn(
-				'bg-muted/30 mx-auto flex w-fit rounded-full border p-1',
+				'bg-muted/30 mx-auto flex w-fit rounded-full border p-2',
 				props.className,
 			)}
 			{...props}
@@ -100,7 +100,7 @@ export function PricingFrequencyToggle({
 			{frequencies.map((freq) => (
 				<button
 					onClick={() => setFrequency(freq)}
-					className="relative px-4 py-1 text-sm capitalize"
+					className="relative px-6 py-2 text-sm capitalize"
 				>
 					<span className="relative z-10">{freq}</span>
 					{frequency === freq && (

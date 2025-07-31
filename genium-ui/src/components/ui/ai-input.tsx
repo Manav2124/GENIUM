@@ -23,7 +23,7 @@ interface AIInputSearchProps {
   placeholder?: string;
 }
 
-export default function AI_Input_Search({
+export default function AiInputSearch({
   onSend,
   disabled,
   placeholder,
