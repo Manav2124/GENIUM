@@ -298,17 +298,17 @@ def initialize_vector_store(user_id, docs):
 
 def get_answer(user_id, query, global_search=False):
     global vector_db
-    if user_id not in vector_db or vector_db[user_id] is None:
-        if qdrant_client is None:
-            return "The document storage service is currently unavailable. Please try again later or contact support if the issue persists."
-        else:
-            return "No document has been uploaded yet. Please upload a PDF, DOCX, or TXT file first, then ask your questions."
+    context = ""
+    document_uploaded = user_id in vector_db and vector_db[user_id] is not None
 
-    search_results = vector_db[user_id].similarity_search(query=query)
-    context = "\n\n".join([
-        f"Page Content: {result.page_content}\nPage Number: {result.metadata.get('page_label', 'N/A')}"
-        for result in search_results
-    ])
+    if document_uploaded:
+        search_results = vector_db[user_id].similarity_search(query=query)
+        context = "\n\n".join([
+            f"Page Content: {result.page_content}\nPage Number: {result.metadata.get('page_label', 'N/A')}"
+            for result in search_results
+        ])
+    elif not global_search:
+        return "No document has been uploaded yet. Please upload a PDF, DOCX, or TXT file first, or enable global search to ask general questions."
 
     # If global search is enabled, fetch additional information from Google
     google_context = ""
@@ -317,9 +317,13 @@ def get_answer(user_id, query, global_search=False):
         if google_results:
             google_context = f"\n\nAdditional Information from Web Search:\n{google_results}"
 
+    if not context and not google_context:
+        return "I couldn't find any information from your document or the web to answer your question."
+
     system_prompt = f"""
-    You are a helpful AI Assistant who answers user queries based on the available context
-    retrieved from a document. Provide detailed answers and include page references when available.
+    You are a helpful AI Assistant who answers user queries based on the available context.
+    If context from a document is available, prioritize it. If not, use the web search results.
+    Provide detailed answers and include page references when available.
 
     CRITICAL FORMATTING INSTRUCTIONS:
     - Use ONLY standard markdown bold formatting: **text** for emphasis
@@ -333,8 +337,8 @@ def get_answer(user_id, query, global_search=False):
 
     {google_context}
 
-    Context:
-    {context}
+    Context from Document:
+    {context if context else "No document context available."}
     """
 
     response = client.chat.completions.create(
