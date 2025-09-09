@@ -8,11 +8,22 @@ module.exports = {
     extend: {
       animation: {
         "border-beam": "border-beam calc(var(--duration)*1s) infinite linear",
+        "slide-in-left": "slide-in-left 1s forwards",
       },
       keyframes: {
         "border-beam": {
           "100%": {
             "offset-distance": "100%",
+          },
+        },
+        "slide-in-left": {
+          "0%": {
+            transform: "translateX(-100%)",
+            opacity: "0",
+          },
+          "100%": {
+            transform: "translateX(0)",
+            opacity: "1",
           },
         },
       },
@@ -60,6 +71,12 @@ module.exports = {
         'melodrama-semibold': ['Melodrama-Semibold', 'sans-serif'],
         'melodrama-bold': ['Melodrama-Bold', 'sans-serif'],
         'melodrama-variable': ['Melodrama-Variable', 'sans-serif'],
+        'sinistre-light': ['Sinistre-Light', 'sans-serif'],
+        'sinistre-regular': ['Sinistre-Regular', 'sans-serif'],
+        'sinistre-medium': ['Sinistre-Medium', 'sans-serif'],
+        'sinistre-semibold': ['Sinistre-Semibold', 'sans-serif'],
+        'sinistre-bold': ['Sinistre-Bold', 'sans-serif'],
+        'sinistre-variable': ['Sinistre-Variable', 'sans-serif'],
       },
       borderRadius: {
         'google': '8px',

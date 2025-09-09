@@ -16,11 +16,13 @@ import {
     useCallback,
     useEffect,
 } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { UploadCloud, File as FileIcon } from "lucide-react";
 import { cn } from "../lib/utils";
+import { uploadFileToBackend } from "../utils/api"; // Import the new upload function
+import { useSession } from 'next-auth/react';
 
-const DEFAULT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const UPLOAD_STEP_SIZE = 5;
 const FILE_SIZES = [
     "Bytes",
@@ -311,7 +313,11 @@ export default function FileUpload({
     validateFile = () => null,
     className,
     onUploadStart = () => {},
+    uploadFunction = uploadFileToBackend, // Use the new upload function by default
+    userId, // Add userId prop
+    accessToken, // Add accessToken prop
 }) {
+    const { data: session, status: sessionStatus } = useSession();
     const [file, setFile] = useState(initialFile);
     const [status, setStatus] = useState("idle");
     const [progress, setProgress] = useState(0);
@@ -362,19 +368,29 @@ export default function FileUpload({
         [acceptedFileTypes]
     );
 
-    const handleError = useCallback(
-        (error) => {
-            setError(error);
-            setStatus("error");
-            onUploadError?.(error);
+const handleError = useCallback(
+    (error) => {
+        const errorObj = error && error.message ? error : { message: "An unknown error occurred.", code: "UNKNOWN_ERROR" };
+        if (errorObj && errorObj.message) {
+            console.error("Upload error:", errorObj); // Log the error for debugging
+            if (errorObj.stack) {
+                console.error("Error stack:", errorObj.stack);
+            }
+        } else {
+            console.error("Upload error: An unknown error occurred.", error);
+        }
+        setError(errorObj);
+        setStatus("error");
+        onUploadError?.(errorObj);
 
-            setTimeout(() => {
-                setError(null);
-                setStatus("idle");
-            }, 3000);
-        },
-        [onUploadError]
-    );
+        // Keep the error message visible until user interaction or a new upload
+        // setTimeout(() => {
+        //     setError(null);
+        //     setStatus("idle");
+        // }, 5000); // Increased visibility duration
+    },
+    [onUploadError]
+);
 
     const simulateUpload = useCallback(
         (uploadingFile) => {
@@ -410,6 +426,74 @@ export default function FileUpload({
         [onUploadSuccess, uploadDelay]
     );
 
+    const performActualUpload = useCallback(
+        async (uploadingFile) => {
+            let progressInterval = null; // Declare progressInterval here
+            try {
+                console.log('=== FILEUPLOAD DEBUG START ===');
+                console.log('File to upload:', uploadingFile?.name);
+                console.log('User ID prop:', userId);
+                console.log('Session status:', sessionStatus);
+                console.log('Session user:', session?.user);
+                console.log('Access token prop:', accessToken ? 'Present' : 'Null');
+
+                setProgress(0);
+                setStatus("uploading");
+
+                // Simulate progress while uploading
+                let currentProgress = 0;
+                progressInterval = setInterval(() => {
+                    currentProgress += UPLOAD_STEP_SIZE;
+                    if (currentProgress < 90) {
+                        setProgress(currentProgress);
+                    }
+                }, uploadDelay / (100 / UPLOAD_STEP_SIZE));
+
+                // Use prop userId or session userId (optional for anonymous uploads)
+                const currentUserId = userId || (sessionStatus === 'authenticated' ? session?.user?.id : null);
+                console.log('Current user ID for upload:', currentUserId);
+
+                // Note: Anonymous uploads are now allowed, so we don't throw an error if no user ID
+                if (!currentUserId) {
+                    console.log('No user ID available, proceeding with anonymous upload');
+                }
+
+                console.log('Calling upload function with:', {
+                    file: uploadingFile?.name,
+                    userId: currentUserId,
+                    hasAccessToken: !!accessToken
+                });
+
+                await uploadFunction(uploadingFile, currentUserId, accessToken); // Pass userId and accessToken
+
+                if (progressInterval) { // Clear interval only if it was set
+                    clearInterval(progressInterval);
+                }
+                setProgress(100);
+                setStatus("success");
+                onUploadSuccess?.(uploadingFile);
+            } catch (error) {
+                console.log('=== FILEUPLOAD ERROR DEBUG ===');
+                console.log('Error type:', error.constructor.name);
+                console.log('Error message:', error.message);
+                console.log('Error response status:', error.response?.status);
+                console.log('Error response data:', error.response?.data);
+                console.log('Error response headers:', error.response?.headers);
+                console.log('Error config:', error.config);
+                console.log('=== FILEUPLOAD ERROR DEBUG END ===');
+
+                if (progressInterval) { // Clear interval only if it was set
+                    clearInterval(progressInterval); // Stop progress simulation on error
+                }
+                setProgress(0); // Reset progress
+                setStatus("error");
+                const errorMessage = error.response?.data?.error || error.message || "An unknown error occurred during upload.";
+                handleError({ message: errorMessage, code: "UPLOAD_FAILED" });
+            }
+        },
+        [uploadFunction, onUploadSuccess, onUploadError, uploadDelay, userId, accessToken, session, sessionStatus]
+    );
+
     const handleFileSelect = useCallback(
         (selectedFile) => {
             if (!selectedFile) return;
@@ -439,7 +523,12 @@ export default function FileUpload({
             setFile(selectedFile);
             setStatus("uploading");
             setProgress(0);
-            simulateUpload(selectedFile);
+
+            if (uploadFunction) {
+                performActualUpload(selectedFile);
+            } else {
+                simulateUpload(selectedFile);
+            }
         },
         [
             simulateUpload,
@@ -447,6 +536,11 @@ export default function FileUpload({
             validateFileType,
             validateFile,
             handleError,
+            uploadFunction, // Add uploadFunction to dependencies
+            userId, // Add userId to dependencies
+            accessToken, // Add accessToken to dependencies
+            performActualUpload, // Add performActualUpload to dependencies
+            simulateUpload, // Add simulateUpload to dependencies
         ]
     );
 
@@ -563,15 +657,15 @@ export default function FileUpload({
                                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                                 {acceptedFileTypes?.length
                                                     ? `${acceptedFileTypes
-                                                          .map(
-                                                              (t) =>
-                                                                  t.split(
-                                                                      "/"
-                                                                  )[1]
-                                                          )
-                                                          .join(", ")
-                                                          .toUpperCase()}`
-                                                    : "SVG, PNG, JPG or GIF"}{" "}
+                                                          .map((t) => {
+                                                              const ext = t.split("/")[1];
+                                                              if (ext === "vnd.openxmlformats-officedocument.wordprocessingml.document") return "DOCX";
+                                                              if (ext === "pdf") return "PDF";
+                                                              if (ext === "plain") return "TXT";
+                                                              return ext?.toUpperCase() || "FILE";
+                                                          })
+                                                          .join(", ")} files`
+                                                    : "PDF, DOCX, TXT files"}{" "}
                                                 {maxFileSize &&
                                                     `up to ${formatBytes(
                                                         maxFileSize
@@ -651,11 +745,20 @@ export default function FileUpload({
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
-                                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-lg"
+                                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
                                 >
                                     <p className="text-sm text-red-500 dark:text-red-400">
                                         {error.message}
                                     </p>
+                                    <button
+                                        onClick={() => {
+                                            setError(null);
+                                            setStatus("idle");
+                                        }}
+                                        className="mt-2 text-xs text-red-300 hover:text-red-100 underline"
+                                    >
+                                        Dismiss
+                                    </button>
                                 </motion.div>
                             )}
                         </AnimatePresence>

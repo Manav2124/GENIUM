@@ -18,7 +18,7 @@ import { cn } from "../../lib/utils";
 import { useAutoResizeTextarea } from "../hooks/use-auto-resize-textarea";
 
 interface AIInputSearchProps {
-  onSend: (value: string) => void;
+  onSend: (value: string, globalSearch?: boolean) => void;
   disabled?: boolean;
   placeholder?: string;
 }
@@ -33,12 +33,12 @@ export default function AiInputSearch({
         minHeight: 52,
         maxHeight: 200,
     });
-    const [showSearch, setShowSearch] = useState(true);
+    const [showSearch, setShowSearch] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
 
     const handleSubmit = () => {
         if (value.trim() && !disabled) {
-            onSend(value);
+            onSend(value, showSearch);
             setValue("");
             adjustHeight(true);
         }
@@ -82,7 +82,7 @@ export default function AiInputSearch({
                             id="ai-input-04"
                             value={value}
                             placeholder={placeholder || "Search the web..."}
-                            className="w-full rounded-xl rounded-b-none px-4 py-3 bg-black/5 dark:bg-white/5 border-none dark:text-white placeholder:text-black/70 dark:placeholder:text-white/70 resize-none focus-visible:ring-0 leading-[1.2]"
+                            className="w-full rounded-xl rounded-b-none px-4 py-3 bg-black/5 dark:bg-white/5 border-none text-black dark:text-white placeholder:text-black/70 dark:placeholder:text-white/70 resize-none focus-visible:ring-0 leading-[1.2]"
                             ref={textareaRef}
                             disabled={disabled}
                             onFocus={handleFocus}

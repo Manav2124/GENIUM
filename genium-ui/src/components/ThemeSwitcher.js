@@ -1,10 +1,21 @@
+'use client';
+
 import React from 'react';
 import { Sun, Moon, Monitor } from 'lucide-react';
 
 const ThemeSwitcher = () => {
-  const [theme, setTheme] = React.useState(localStorage.getItem('theme') || 'system');
+  const [theme, setTheme] = React.useState('system');
+  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
+    setMounted(true);
+    const savedTheme = localStorage.getItem('theme') || 'system';
+    setTheme(savedTheme);
+  }, []);
+
+  React.useEffect(() => {
+    if (!mounted) return;
+
     const applyTheme = (theme) => {
       if (theme === 'system') {
         const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -26,7 +37,11 @@ const ThemeSwitcher = () => {
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme]);
+  }, [theme, mounted]);
+
+  if (!mounted) {
+    return null; // or a loading placeholder
+  }
 
   const themes = [
     { name: 'light', icon: <Sun className="w-5 h-5" /> },

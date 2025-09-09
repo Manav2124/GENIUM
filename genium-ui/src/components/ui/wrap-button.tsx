@@ -44,4 +44,4 @@ const WrapButton: React.FC<WrapButtonProps> = ({
   )
 }
 
-export { WrapButton } 
+export default WrapButton

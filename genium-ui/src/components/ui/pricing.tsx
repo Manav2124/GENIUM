@@ -99,6 +99,7 @@ export function PricingFrequencyToggle({
 		>
 			{frequencies.map((freq) => (
 				<button
+					key={freq}
 					onClick={() => setFrequency(freq)}
 					className="relative px-6 py-2 text-sm capitalize"
 				>

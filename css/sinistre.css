@@ -1,0 +1,80 @@
+/**
+* @license
+*
+* Font Family: Sinistre
+* Designed by: ITF
+* URL: https://www.fontshare.com/fonts/sinistre
+* © 2025 Indian Type Foundry
+*
+* Sinistre Light
+* Sinistre Regular
+* Sinistre Medium
+* Sinistre Semibold
+* Sinistre Bold
+* Sinistre Variable (Variable font)
+
+*
+*/
+@font-face {
+  font-family: 'Sinistre-Light';
+  src: url('../fonts/Sinistre-Light.woff2') format('woff2'),
+       url('../fonts/Sinistre-Light.woff') format('woff'),
+       url('../fonts/Sinistre-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Sinistre-Regular';
+  src: url('../fonts/Sinistre-Regular.woff2') format('woff2'),
+       url('../fonts/Sinistre-Regular.woff') format('woff'),
+       url('../fonts/Sinistre-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Sinistre-Medium';
+  src: url('../fonts/Sinistre-Medium.woff2') format('woff2'),
+       url('../fonts/Sinistre-Medium.woff') format('woff'),
+       url('../fonts/Sinistre-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Sinistre-Semibold';
+  src: url('../fonts/Sinistre-Semibold.woff2') format('woff2'),
+       url('../fonts/Sinistre-Semibold.woff') format('woff'),
+       url('../fonts/Sinistre-Semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Sinistre-Bold';
+  src: url('../fonts/Sinistre-Bold.woff2') format('woff2'),
+       url('../fonts/Sinistre-Bold.woff') format('woff'),
+       url('../fonts/Sinistre-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+/**
+* This is a variable font
+* You can control variable axes as shown below:
+* font-variation-settings: wght 300.0;
+*
+* available axes:
+'wght' (range from 300.0 to 700.0
+*/
+@font-face {
+  font-family: 'Sinistre-Variable';
+  src: url('../fonts/Sinistre-Variable.woff2') format('woff2'),
+       url('../fonts/Sinistre-Variable.woff') format('woff'),
+       url('../fonts/Sinistre-Variable.ttf') format('truetype');
+  font-weight: 300 700;
+  font-display: swap;
+  font-style: normal;
+}
+

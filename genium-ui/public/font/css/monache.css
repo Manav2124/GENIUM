@@ -1,0 +1,80 @@
+/**
+* @license
+*
+* Font Family: Monache
+* Designed by: Shaily Patel
+* URL: https://www.fontshare.com/fonts/monache
+* © 2025 Indian Type Foundry
+*
+* Monache Light 
+* Monache Regular 
+* Monache Medium 
+* Monache Semibold 
+* Monache Bold 
+* Monache Variable (Variable font)
+
+*
+*/
+@font-face {
+  font-family: 'Monache-Light';
+  src: url('../monache/Monache-Light.woff2') format('woff2'),
+       url('../monache/Monache-Light.woff') format('woff'),
+       url('../monache/Monache-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Monache-Regular';
+  src: url('../monache/Melodrama-Regular.woff2') format('woff2'),
+       url('../monache/Melodrama-Regular.woff') format('woff'),
+       url('../monache/Melodrama-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Monache-Medium';
+  src: url('../monache/Melodrama-Medium.woff2') format('woff2'),
+       url('../monache/Melodrama-Medium.woff') format('woff'),
+       url('../monache/Monache-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Monache-Semibold';
+  src: url('../monache/Melodrama-Semibold.woff2') format('woff2'),
+       url('../monache/Melodrama-Semibold.woff') format('woff'),
+       url('../monache/Melodrama-Semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Monache-Bold';
+  src: url('../monache/Monache-Bold.woff2') format('woff2'),
+       url('../monache/Monache-Bold.woff') format('woff'),
+       url('../monache/Monache-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+/**
+* This is a variable font
+* You can control variable axes as shown below:
+* font-variation-settings: wght 300.0;
+*
+* available axes:
+'wght' (range from 300.0 to 700.0
+*/
+@font-face {
+  font-family: 'Monache-Variable';
+  src: url('../monache/Melodrama-Variable.woff2') format('woff2'),
+       url('../monache/Melodrama-Variable.woff') format('woff'),
+       url('../monache/Melodrama-Variable.ttf') format('truetype');
+  font-weight: 300 700;
+  font-display: swap;
+  font-style: normal;
+}
+

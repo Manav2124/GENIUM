@@ -15,13 +15,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create non-root user
-RUN useradd -m -u 1000 streamlit && chown -R streamlit:streamlit /app
-USER streamlit
+RUN useradd -m -u 1000 flask && chown -R flask:flask /app
+USER flask
 
 # Expose port
-EXPOSE 8501
+EXPOSE 5001
 
-# Health check
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+# Health check (optional for Flask, but good practice)
+# HEALTHCHECK CMD curl --fail http://localhost:5001/api/health
 
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+CMD ["python", "app.py"]

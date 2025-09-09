@@ -1,6 +1,68 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
+import { signIn, useSession, signOut } from 'next-auth/react';
 
 function SignInCard() {
+  const { data: session, status } = useSession();
+  const [authError, setAuthError] = useState('');
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  const handleSignIn = async (provider) => {
+    setAuthError('');
+    setIsSigningIn(true);
+    try {
+      const result = await signIn(provider, { callbackUrl: '/' });
+      if (result?.error) {
+        setAuthError(`Failed to sign in with ${provider}. Please try again.`);
+      }
+    } catch (error) {
+      console.error(`Sign in error with ${provider}:`, error);
+      setAuthError(`An error occurred during sign in. Please try again.`);
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  if (status === 'loading') {
+    return (
+      <div className="w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+        <div className="flex justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (session) {
+    const user = session.user;
+    const avatarUrl = user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.username || 'User')}&background=random&color=fff&size=64`;
+
+    return (
+      <div className="w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
+        <div className="text-center">
+          <img
+            src={avatarUrl}
+            alt="Avatar"
+            className="w-20 h-20 rounded-full mx-auto mb-4"
+          />
+          <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">
+            {user.name || 'User'}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-300 mb-4">
+            @{user.username || user.email}
+          </p>
+          <button
+            onClick={() => signOut()}
+            className="w-full text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-sm p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8 dark:bg-gray-800 dark:border-gray-700">
       <form className="space-y-6" action="#">
@@ -10,6 +72,11 @@ function SignInCard() {
         <p className="text-sm font-medium text-gray-500 dark:text-white">
           Choose your preferred sign in method
         </p>
+        {authError && (
+          <div className="p-3 text-sm text-red-700 bg-red-100 border border-red-400 rounded-md dark:bg-red-900 dark:text-red-300 dark:border-red-600">
+            {authError}
+          </div>
+        )}
         <div>
           <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Your email</label>
           <input type="email" name="email" id="email" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="name@company.com" required />
@@ -32,24 +99,29 @@ function SignInCard() {
           <span className="text-gray-500 dark:text-gray-300">Or continue with</span>
         </div>
         <div className="flex items-center justify-center space-x-4">
-          <a href="#" className="text-gray-500 hover:text-gray-900 dark:hover:text-white">
+          <button
+            onClick={() => handleSignIn('github')}
+            disabled={isSigningIn}
+            className="text-gray-500 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
-              <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.669 9.116 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.479 1.191-3.977 3.932-3.977 1.143 0 1.743.085 1.987.122v2.845h-1.666c-.969 0-1.264.487-1.264 1.236v1.547h2.533l-.398 2.987h-2.135v6.987C18.331 21.116 22 16.991 22 12z" clipRule="evenodd" />
+              <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.82c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.378.203 2.398.1 2.65.64.7 1.03 1.595 1.03 2.688 0 3.848-2.338 4.695-4.566 4.942.359.308.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd" />
             </svg>
-            <span className="sr-only">Facebook</span>
-          </a>
-          <a href="#" className="text-gray-500 hover:text-gray-900 dark:hover:text-white">
+            <span className="sr-only">Continue with GitHub</span>
+          </button>
+          <button
+            onClick={() => handleSignIn('google')}
+            disabled={isSigningIn}
+            className="text-gray-500 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.139-.002-.276-.006-.413A8.345 8.345 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.807-2.278 8.224 8.224 0 01-2.605.996 4.127 4.127 0 00-6.993 3.703 11.662 11.662 0 01-8.457-4.287 4.109 4.109 0 001.27 5.495 4.105 4.105 0 01-1.856-.513v.052a4.102 4.102 0 003.292 4.022 4.094 4.094 0 01-1.855.072 4.149 4.149 0 003.834 2.85A8.25 8.25 0 012 18.384 11.64 11.64 0 008.29 20.251z" />
+              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            <span className="sr-only">Twitter</span>
-          </a>
-          <a href="#" className="text-gray-500 hover:text-gray-900 dark:hover:text-white">
-            <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M12.072 0C5.403 0 0 5.403 0 12.072c0 5.344 3.478 9.809 8.313 11.385.605.111.794-.261.794-.577 0-.285-.011-1.04-.015-2.04-3.384.734-4.109-1.637-4.109-1.637-.553-1.408-1.349-1.786-1.349-1.786-1.097-.757.082-.742.082-.742 1.217.085 1.861 1.247 1.861 1.247 1.08 1.803 2.821 1.282 3.507.981.109-.762.424-1.283 2.04-.69 2.164-.335 2.164-.335.397.986 1.551 1.786 2.859 1.786 3.423 0 6.257-2.245 6.257-5.291 0-.38-.009-1.382-.018-2.722 0 0-1.013.663-2.203 0 0 0-.985-.779-.985-1.925 0-1.587.994-2.905 2.247-2.905 0 .237.328.362.526.362.197 0 .39-.015.583-.053-1.217-.457-4.186-2.287-4.186-5.073 0-1.124.403-2.059 1.057-2.792-.106-.264-.457-1.326.103-2.759 0 0 .869-.281 2.84.981 1.381-.383 2.83-.578 4.279-.578 1.447 0 2.897.194 4.277.573 1.967-1.263 2.835-.981 2.835-.981.561 1.433.211 2.495.105 2.759.654.732 1.056 1.667 1.056 2.791 0 2.791-2.814 4.824-4.182 5.074.2.038.391.053.586.053.197 0 .526-.125.526-.362 1.254 0 2.247 1.317 2.247 2.905 0 1.146-.988 1.925-.988 1.925-1.187.661-2.199 0-2.199 0-.009 1.341-.018 2.343-.018 2.722 0 3.046 2.826 5.291 6.253 5.291z" />
-            </svg>
-            <span className="sr-only">Google</span>
-          </a>
+            <span className="sr-only">Continue with Google</span>
+          </button>
         </div>
       </form>
     </div>
