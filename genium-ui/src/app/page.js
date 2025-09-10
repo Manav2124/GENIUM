@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // Dynamically import components that might cause SSR issues
-const ThemeSwitcher = dynamic(() => import('../components/ThemeSwitcher'), { ssr: false });
 const Profile = dynamic(() => import('../components/Profile'), { ssr: false });
 const WrapButton = dynamic(() => import('../components/ui/wrap-button'), { ssr: false });
 const PricingSection = dynamic(() => import('../components/ui/pricing.tsx').then(mod => ({ default: mod.PricingSection })), { ssr: false });
@@ -16,6 +16,7 @@ const CodeModal = dynamic(() => import('../components/CodeModal'), { ssr: false 
 const CodeAssistancePage = dynamic(() => import('../components/CodeAssistancePage'), { ssr: false });
 const FileUpload = dynamic(() => import('../components/FileUpload'), { ssr: false });
 const PrivacySection = dynamic(() => import('../components/PrivacySection'), { ssr: false });
+const DocsPage = dynamic(() => import('../components/DocsPage'), { ssr: false });
 const AITextLoading = dynamic(() => import('../components/ui/ai-text-loading'), { ssr: false });
 const AuthCard = dynamic(() => import('../components/AuthCard'), { ssr: false });
 const Dialog = dynamic(() => import('../components/ui/dialog').then(mod => mod.Dialog), { ssr: false });
@@ -24,6 +25,7 @@ const DialogTrigger = dynamic(() => import('../components/ui/dialog').then(mod =
 const DialogHeader = dynamic(() => import('../components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
 const DialogTitle = dynamic(() => import('../components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
 const LiquidButton = dynamic(() => import('../components/ui/liquid-glass-button').then(mod => ({ default: mod.LiquidButton })), { ssr: false });
+const ChatUI = dynamic(() => import('../components/ChatUI'), { ssr: false });
 import { FileUp, Landmark, ShieldCheck, Zap, Menu, CircleCheckIcon, X, Globe, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { uploadFileToBackend, askDocumentQuestion, askQuestionWithGlobalSearch } from '../utils/api'; // Import the API functions
@@ -347,7 +349,31 @@ export default function Home() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [navMenuOpen, setNavMenuOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState('overview');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [currentPage, setCurrentPage] = useState('overview'); // Default to 'overview'
+
+  useEffect(() => {
+    const page = searchParams.get('page');
+    const savedPage = localStorage.getItem('currentPage');
+
+    if (page) {
+      setCurrentPage(page);
+      localStorage.setItem('currentPage', page);
+    } else if (savedPage) {
+      setCurrentPage(savedPage);
+      router.replace(`/?page=${savedPage}`, undefined, { shallow: true });
+    } else {
+      setCurrentPage('overview');
+    }
+  }, [searchParams, router]);
+
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
+    localStorage.setItem('currentPage', page);
+    router.push(`/?page=${page}`, undefined, { shallow: true });
+  }, [router]);
+
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [showUploadSuccess, setShowUploadSuccess] = useState(false);
   const [fileProcessed, setFileProcessed] = useState(false);
@@ -375,6 +401,7 @@ export default function Home() {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
+
 
 
   // Function to get NextAuth JWT token from API
@@ -536,11 +563,11 @@ export default function Home() {
   }, [session, getJwtToken, jwtToken]);
 
   const handleCodeClick = () => {
-    setCurrentPage('code-assistance');
+    handlePageChange('code-assistance');
   };
 
   const handleDocumentQAClick = () => {
-    setCurrentPage('document-qa');
+    handlePageChange('document-qa');
   };
 
   const handleFileUpload = useCallback((selectedFile) => {
@@ -553,16 +580,21 @@ export default function Home() {
   }, []);
 
   const handleTryGeniumClick = () => {
-    setCurrentPage('try-genium');
+    handlePageChange('try-genium');
   };
 
   const handleBackToExplore = () => {
-    setCurrentPage('try-genium');
+    handlePageChange('try-genium');
   };
 
   const handleBackToOverview = () => {
-    setCurrentPage('overview');
+    handlePageChange('overview');
   };
+
+  const handleDocsClick = () => {
+    handlePageChange('docs');
+  };
+
 
 
   return (
@@ -583,7 +615,7 @@ export default function Home() {
               <div className="flex-1 flex justify-center">
                 <div className="hidden md:flex items-center gap-4">
                   <button
-                    onClick={() => setCurrentPage('overview')}
+                    onClick={() => handlePageChange('overview')}
                     className={cn(
                       "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
                       currentPage === 'overview' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
@@ -592,13 +624,31 @@ export default function Home() {
                     Overview
                   </button>
                   <button
-                    onClick={() => setCurrentPage('plan')}
+                    onClick={() => handlePageChange('plan')}
                     className={cn(
                       "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
                       currentPage === 'plan' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
                     )}
                   >
                     Plan
+                  </button>
+                  <button
+                    onClick={handleDocsClick}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                      currentPage === 'docs' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
+                    )}
+                  >
+                    Docs
+                  </button>
+                  <button
+                    onClick={() => handlePageChange('chat')}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                      currentPage === 'chat' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
+                    )}
+                  >
+                    Chat
                   </button>
                 </div>
               </div>
@@ -609,7 +659,6 @@ export default function Home() {
                     <Menu className="w-5 h-5" />
                   </button>
                 </div>
-                <ThemeSwitcher />
                 <Dialog open={showSignupModal} onOpenChange={setShowSignupModal}>
                   <DialogTrigger asChild>
                     <button className="text-sm font-medium text-foreground hover:text-primary">Sign Up</button>
@@ -629,7 +678,7 @@ export default function Home() {
         <div className="md:hidden fixed top-16 left-0 right-0 bg-background/95 backdrop-blur-lg border-b z-10">
           <div className="flex flex-col items-center gap-2 py-4">
             <button
-              onClick={() => { setCurrentPage('overview'); setNavMenuOpen(false); }}
+              onClick={() => { handlePageChange('overview'); setNavMenuOpen(false); }}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
                 currentPage === 'overview' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
@@ -638,13 +687,22 @@ export default function Home() {
               Overview
             </button>
             <button
-              onClick={() => { setCurrentPage('plan'); setNavMenuOpen(false); }}
+              onClick={() => { handlePageChange('plan'); setNavMenuOpen(false); }}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
                 currentPage === 'plan' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
               )}
             >
               Plan
+            </button>
+            <button
+              onClick={() => { handleDocsClick(); setNavMenuOpen(false); }}
+              className={cn(
+                "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                currentPage === 'docs' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
+              )}
+            >
+              Docs
             </button>
           </div>
         </div>
@@ -655,6 +713,10 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto space-y-1">
           </div>
         </aside>
+
+        {currentPage === 'chat' && (
+          <ChatUI />
+        )}
 
         <main className={`${showAuthModal ? 'blur-active' : ''}`}>
           {currentPage === 'overview' && (
@@ -690,7 +752,7 @@ export default function Home() {
             <div className="min-h-screen flex flex-col items-center justify-center py-16 px-6 pt-32">
               <div className="w-full max-w-6xl mb-8">
                 <button
-                  onClick={() => setCurrentPage('overview')}
+                  onClick={() => handlePageChange('overview')}
                   className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
                 >
                   ← Back to Overview
@@ -1034,11 +1096,15 @@ greet('Genium User');
               </div>
             </div>
           )}
+
+          {currentPage === 'docs' && (
+            <DocsPage onBack={handleBackToOverview} />
+          )}
         </main>
       </div>
 
 
-      {currentPage !== 'plan' && currentPage !== 'try-genium' && currentPage !== 'document-qa' && currentPage !== 'code-assistance' && <Footer setCurrentPage={setCurrentPage} />}
+      {currentPage !== 'plan' && currentPage !== 'try-genium' && currentPage !== 'document-qa' && currentPage !== 'code-assistance' && currentPage !== 'docs' && currentPage !== 'chat' && <Footer setCurrentPage={setCurrentPage} />}
     </div>
   );
 }

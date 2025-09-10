@@ -33,9 +33,8 @@
   },
   "include": [
     "app",
+    "src",
     ".next/types/**/*.ts"
   ],
-  "exclude": [
-    "src"
-  ]
+  "exclude": []
 }

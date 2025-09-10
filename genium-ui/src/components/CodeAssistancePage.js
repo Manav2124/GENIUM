@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Code, Sparkles, MessageSquare, Lightbulb, CheckCircle, AlertCircle, FileText, Download } from 'lucide-react';
 import AiInputSearch from './ui/ai-input.tsx';
+import { PromptBox } from './ui/chatgpt-prompt-input.tsx';
 import AITextLoading from './ui/ai-text-loading.tsx';
 import FileTree from './FileTree';
 import { Textarea } from './ui/textarea.tsx';
@@ -9,6 +10,7 @@ import { Textarea } from './ui/textarea.tsx';
 
 const CodeAssistancePage = ({ onBack }) => {
   const [prompt, setPrompt] = useState('');
+  const [response, setResponse] = useState(''); // Added for backend response
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [generatedCode, setGeneratedCode] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,183 +32,39 @@ const CodeAssistancePage = ({ onBack }) => {
     { value: 'ruby', label: 'Ruby', icon: '💎' },
   ];
 
+  // Modified handleGenerateCode to use the new backend API
   const handleGenerateCode = async (userPrompt) => {
     if (!userPrompt.trim()) return;
 
     setIsGenerating(true);
     setPrompt(userPrompt);
+    setResponse(''); // Clear previous response
     setGeneratedCode('');
     setProjectData(null);
     setSelectedFile('');
     setSelectedFileContent('');
 
     try {
-      const response = await fetch('http://localhost:5001/api/generate-code', {
+      const res = await fetch('/api/prompt-to-code', { // Use the new API endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          prompt: userPrompt,
-          language: selectedLanguage,
-        }),
+        body: JSON.stringify({ prompt: userPrompt }), // Send prompt
       });
-
-      if (response.ok) {
-        const data = await response.json();
-
-        if (data.files && Array.isArray(data.files)) {
-          // Handle project structure response
-          setProjectData(data);
-
-          // Auto-select the main file if available
-          if (data.main_file) {
-            const mainFileData = data.files.find(file => file.path === data.main_file);
-            if (mainFileData) {
-              setSelectedFile(data.main_file);
-              setSelectedFileContent(mainFileData.content);
-              setGeneratedCode(mainFileData.content);
-            }
-          }
-
-        } else if (data.code) {
-          setGeneratedCode(data.code);
-        }
-      } else {
-        // Fallback: Generate sample code based on language
-        generateSampleCode(userPrompt);
-      }
+      const data = await res.json();
+      setResponse(data.code || data.error || 'No response from backend.'); // Display backend response
     } catch (error) {
-      console.error('Error generating code:', error);
-      // Fallback: Generate sample code
-      generateSampleCode(userPrompt);
+      setResponse(`Error: ${error.message}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const generateSampleCode = (userPrompt) => {
-    const sampleCodes = {
-      javascript: `// ${userPrompt}
-function processData(data) {
-  if (!data || !Array.isArray(data)) {
-    throw new Error('Invalid data provided');
-  }
-
-  return data
-    .filter(item => item.active)
-    .map(item => ({
-      id: item.id,
-      name: item.name,
-      processed: true
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-// Example usage
-const sampleData = [
-  { id: 1, name: 'Alice', active: true },
-  { id: 2, name: 'Bob', active: false },
-  { id: 3, name: 'Charlie', active: true }
-];
-
-const result = processData(sampleData);
-console.log(result);`,
-
-      python: `# ${userPrompt}
-def process_data(data):
-    """
-    Process and filter data based on active status.
-
-    Args:
-        data (list): List of dictionaries with id, name, and active fields
-
-    Returns:
-        list: Processed and sorted data
-    """
-    if not data or not isinstance(data, list):
-        raise ValueError("Invalid data provided")
-
-    filtered_data = [item for item in data if item.get('active', False)]
-
-    processed_data = [
-        {
-            'id': item['id'],
-            'name': item['name'],
-            'processed': True
-        }
-        for item in filtered_data
-    ]
-
-    return sorted(processed_data, key=lambda x: x['name'])
-
-# Example usage
-sample_data = [
-    {'id': 1, 'name': 'Alice', 'active': True},
-    {'id': 2, 'name': 'Bob', 'active': False},
-    {'id': 3, 'name': 'Charlie', 'active': True}
-]
-
-result = process_data(sample_data)
-print(result)`,
-
-      java: `// ${userPrompt}
-import java.util.*;
-import java.util.stream.Collectors;
-
-public class DataProcessor {
-    public static class DataItem {
-        private int id;
-        private String name;
-        private boolean active;
-
-        public DataItem(int id, String name, boolean active) {
-            this.id = id;
-            this.name = name;
-            this.active = active;
-        }
-
-        // Getters
-        public int getId() { return id; }
-        public String getName() { return name; }
-        public boolean isActive() { return active; }
-    }
-
-    public static List<Map<String, Object>> processData(List<DataItem> data) {
-        if (data == null || data.isEmpty()) {
-            throw new IllegalArgumentException("Invalid data provided");
-        }
-
-        return data.stream()
-            .filter(DataItem::isActive)
-            .map(item -> {
-                Map<String, Object> processed = new HashMap<>();
-                processed.put("id", item.getId());
-                processed.put("name", item.getName());
-                processed.put("processed", true);
-                return processed;
-            })
-            .sorted(Comparator.comparing(item -> (String) item.get("name")))
-            .collect(Collectors.toList());
-    }
-
-    public static void main(String[] args) {
-        List<DataItem> sampleData = Arrays.asList(
-            new DataItem(1, "Alice", true),
-            new DataItem(2, "Bob", false),
-            new DataItem(3, "Charlie", true)
-        );
-
-        List<Map<String, Object>> result = processData(sampleData);
-        System.out.println(result);
-    }
-}`
-    };
-
-    const code = sampleCodes[selectedLanguage] || sampleCodes.javascript;
-    setGeneratedCode(code);
-
-  };
+  // Removed generateSampleCode as it's no longer needed for the new functionality
+  // const generateSampleCode = (userPrompt) => {
+  //   // ... (removed sample code generation logic)
+  // };
 
   const handleCopy = async () => {
     try {
@@ -306,130 +164,39 @@ public class DataProcessor {
   };
 
   return (
-    <div className="code-assistance-page flex flex-col h-full p-6 pt-32">
-      <div className="w-full max-w-7xl mx-auto mb-4">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-        >
-          ← Back to Explore
-        </button>
-      </div>
+    <div className="flex min-h-screen bg-white dark:bg-black text-black dark:text-white pt-32 px-32"> {/* Increased top padding (pt-32) and horizontal padding (px-32) */}
+      {/* Left Sidebar */}
+      <aside className="w-64 bg-gray-100 dark:bg-gray-900 shadow-md flex flex-col p-4 rounded-lg my-4 border border-gray-300 dark:border-gray-700"> {/* Added margin, rounded corners, and border */}
+        {/* Theme Toggle */}
 
-      <div className="flex-grow flex gap-6 max-w-7xl mx-auto w-full">
-        {/* Left Panel - Input */}
-        <div className={`${projectData && projectData.files ? 'w-1/3' : 'w-1/2'} flex flex-col gap-6`}>
-          <div className="bg-surface dark:bg-surface-dark rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-            {projectData && (
-              <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
-                <p className="text-sm text-green-800 dark:text-green-200">
-                  <strong>Project:</strong> {projectData.project_name}
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  {projectData.description}
-                </p>
-              </div>
-            )}
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-yellow-400" />
-              Describe Your Project
-            </h2>
-            <AiInputSearch
-              onSend={handleGenerateCode}
-              disabled={isGenerating}
-              placeholder="Describe what you want to build... (e.g., 'Create a todo list app using React')"
-            />
-
-            {prompt && (
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Your request:</strong> {prompt}
-                </p>
-              </div>
-            )}
-
-            {projectData && (
-              <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
-                <p className="text-sm text-green-800 dark:text-green-200">
-                  <strong>Project:</strong> {projectData.project_name}
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  {projectData.description}
-                </p>
-              </div>
-            )}
-          </div>
+        {/* Siri-style animation */}
+        <div className="flex flex-col items-center space-y-4 mb-auto">
+          {/* Siri-style glowing circular animated element */}
         </div>
 
-        {/* Middle Panel - File Tree */}
-        {projectData && projectData.files && (
-          <div className="w-1/4 bg-surface dark:bg-surface-dark rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-400" />
-                Project Files
-              </h2>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <FileTree
-                files={projectData.files}
-                onFileSelect={handleFileSelect}
-                selectedFile={selectedFile}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Right Panel - Output */}
-        <div className={`${projectData && projectData.files ? 'w-2/3' : 'w-full'} bg-surface dark:bg-surface-dark rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col`}>
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-bold">Response</h2>
-          </div>
-          <div className="flex-1 p-6 bg-gray-900 overflow-y-auto rounded-b-lg">
-            {isGenerating && (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <AITextLoading />
-                  <p className="mt-4 text-gray-400">Generating your code...</p>
-                </div>
-              </div>
-            )}
-
-            {!isGenerating && !generatedCode && (
-              <div className="flex items-center justify-center h-full text-gray-400">
-                <div className="text-center">
-                  <p>The answer will appear here.</p>
-                </div>
-              </div>
-            )}
-
-            {!isGenerating && generatedCode && (
-              <div className="relative h-full">
-                <Textarea
-                  value={generatedCode}
-                  readOnly
-                  placeholder="Your generated code will appear here."
-                  className="h-full w-full bg-gray-900 text-green-400 font-mono text-sm p-4 rounded-lg resize-none focus:ring-0 focus:outline-none"
-                />
-                {projectData && (
-                  <div className="absolute top-4 right-4 flex items-center gap-2">
-                    <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
-                      {projectData.files?.length || 0} files
-                    </span>
-                    <button
-                      onClick={handleDownloadProject}
-                      className="flex items-center gap-2 px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-sm transition-colors"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+        {/* PromptBox at the bottom */}
+        <div className="mt-auto">
+          <PromptBox
+            value={prompt}
+            isLoading={isGenerating}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleGenerateCode(prompt);
+              }
+            }}
+          />
         </div>
-      </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 overflow-auto my-4 ml-8 bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md border border-gray-300 dark:border-gray-700"> {/* Increased left margin (ml-8) */}
+        <h1 className="text-2xl font-bold mb-4">Backend Response:</h1>
+        <pre className="bg-gray-200 dark:bg-gray-700 p-4 rounded-md shadow-sm whitespace-pre-wrap"> {/* Adjusted background for pre */}
+          {response}
+        </pre>
+      </main>
     </div>
   );
 };

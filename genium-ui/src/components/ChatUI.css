@@ -1,0 +1,111 @@
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #1a1a1a; /* Dark background */
+  color: #f0f0f0;
+  font-family: Arial, sans-serif;
+}
+
+.messages-display {
+  flex-grow: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border-radius: 15px;
+  max-width: 70%;
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #007bff;
+  color: white;
+  border-bottom-right-radius: 2px;
+}
+
+.message.ai {
+  align-self: flex-start;
+  background-color: #333;
+  color: white;
+  border-bottom-left-radius: 2px;
+}
+
+.siri-wave-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 80px; /* Height for the wave effect */
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.siri-wave {
+  width: 80%;
+  height: 40px;
+  background: linear-gradient(90deg,
+    rgba(0,255,255,0) 0%,
+    rgba(0,255,255,0.5) 25%,
+    rgba(128,0,128,0.5) 50%,
+    rgba(255,0,255,0.5) 75%,
+    rgba(255,0,255,0) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: 20px;
+  filter: blur(8px);
+  animation: wave-animation 4s infinite linear;
+  position: absolute;
+  left: -50%; /* Start off-screen to the left */
+  right: -50%; /* End off-screen to the right */
+}
+
+@keyframes wave-animation {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
+
+.chat-input-form {
+  display: flex;
+  padding: 10px 20px;
+  background-color: #2a2a2a;
+  border-top: 1px solid #333;
+}
+
+.chat-input {
+  flex-grow: 1;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 25px; /* Rounded corners */
+  background-color: #444;
+  color: white;
+  margin-right: 10px;
+  outline: none;
+}
+
+.chat-input::placeholder {
+  color: #bbb;
+}
+
+.send-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.send-button:hover {
+  background-color: #0056b3;
+}
