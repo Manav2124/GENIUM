@@ -1,25 +1,3 @@
 node_modules
 
 genium-backend/.env
-
-# Next.js
-genium-ui/.next/
-genium-ui/out/
-
-# Production
-genium-ui/build/
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Local env files
-.env*.local
-
-# Vercel
-.vercel
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts

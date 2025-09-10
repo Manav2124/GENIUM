@@ -23,7 +23,6 @@ const DialogContent = dynamic(() => import('../components/ui/dialog').then(mod =
 const DialogTrigger = dynamic(() => import('../components/ui/dialog').then(mod => mod.DialogTrigger), { ssr: false });
 const DialogHeader = dynamic(() => import('../components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
 const DialogTitle = dynamic(() => import('../components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
-const LiquidButton = dynamic(() => import('../components/ui/liquid-glass-button').then(mod => ({ default: mod.LiquidButton })), { ssr: false });
 import { FileUp, Landmark, ShieldCheck, Zap, Menu, CircleCheckIcon, X, Globe, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { uploadFileToBackend, askDocumentQuestion, askQuestionWithGlobalSearch } from '../utils/api'; // Import the API functions
@@ -376,7 +375,6 @@ export default function Home() {
     };
   }, []);
 
-
   // Function to get NextAuth JWT token from API
   const getJwtToken = useCallback(async () => {
     try {
@@ -563,7 +561,6 @@ export default function Home() {
   const handleBackToOverview = () => {
     setCurrentPage('overview');
   };
-
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
