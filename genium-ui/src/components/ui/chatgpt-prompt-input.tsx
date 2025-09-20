@@ -141,32 +141,6 @@ const Settings2Icon = (props: React.SVGProps<SVGSVGElement>) => (
     <circle cx="7" cy="7" r="3" />{" "}
   </svg>
 );
-const SendIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    {" "}
-    <path
-      d="M22 2L11 13"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M22 2L15 22L11 13L2 9L22 2Z"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 const XIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     width="24"
@@ -561,14 +535,6 @@ export const PromptBox = React.forwardRef<
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
-                    type="submit"
-                    disabled={!hasValue}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none bg-black text-white hover:bg-black/80 dark:bg-white dark:hover:bg-white/80 disabled:bg-black/40 dark:disabled:bg-gray-700"
-                  >
-                    <SendIcon className="h-6 w-6 font-bold" />
-                    <span className="sr-only">Send message</span>
-                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" showArrow={true}>
                   <p>Send</p>

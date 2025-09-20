@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const DocsPage = ({ onBack }) => {
@@ -6,7 +7,7 @@ const DocsPage = ({ onBack }) => {
       <div className="w-full max-w-6xl mx-auto mb-8">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-gray-800 hover:text-gray-900 transition-colors"
         >
           ← Back to Overview
         </button>

@@ -1,10 +1,11 @@
-'use client';
+"use client";
+import Image from "next/image";
 
-import { getSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUserData } from '../../components/UserDataContext';
-import { useSession } from 'next-auth/react';
+import { getSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUserData } from "../../src/components/UserDataContext";
+import { useSession } from "next-auth/react";
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -13,11 +14,11 @@ export default function Dashboard() {
   const { uploadedFiles, queries } = useUserData();
 
   useEffect(() => {
-    if (status === 'loading') {
+    if (status === "loading") {
       setLoading(true);
-    } else if (status === 'unauthenticated') {
-      router.push('/api/auth/signin');
-    } else if (status === 'authenticated') {
+    } else if (status === "unauthenticated") {
+      router.push("/api/auth/signin");
+    } else if (status === "authenticated") {
       setLoading(false);
     }
   }, [status, router]);
@@ -59,14 +60,19 @@ export default function Dashboard() {
 
           <div className="bg-surface dark:bg-surface-dark rounded-lg p-8 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-4 mb-6">
-              <img
-                src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.username || 'User')}&background=random&color=fff&size=80`}
+              <Image
+                src={
+                  user.image ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.username || "User")}&background=random&color=fff&size=80`
+                }
                 alt="User Avatar"
+                width={80}
+                height={80}
                 className="w-20 h-20 rounded-full border-2 border-primary/20"
               />
               <div>
                 <h2 className="text-2xl font-semibold text-text-primary dark:text-white">
-                  Welcome, {user.name || user.username || 'User'}!
+                  Welcome, {user.name || user.username || "User"}!
                 </h2>
                 <p className="text-text-secondary dark:text-gray-400">
                   {user.email}
@@ -80,7 +86,9 @@ export default function Dashboard() {
                   Recent Activity
                 </h3>
                 <p className="text-text-secondary dark:text-gray-400">
-                  {recentQueries.length > 0 ? `${recentQueries.length} recent queries` : 'No recent activity yet.'}
+                  {recentQueries.length > 0
+                    ? `${recentQueries.length} recent queries`
+                    : "No recent activity yet."}
                 </p>
               </div>
 
@@ -89,7 +97,8 @@ export default function Dashboard() {
                   Documents
                 </h3>
                 <p className="text-text-secondary dark:text-gray-400">
-                  {totalDocuments} document{totalDocuments !== 1 ? 's' : ''} uploaded.
+                  {totalDocuments} document{totalDocuments !== 1 ? "s" : ""}{" "}
+                  uploaded.
                 </p>
               </div>
 
@@ -98,7 +107,8 @@ export default function Dashboard() {
                   Usage Stats
                 </h3>
                 <p className="text-text-secondary dark:text-gray-400">
-                  {totalQueries} quer{totalQueries !== 1 ? 'ies' : 'y'} this session.
+                  {totalQueries} quer{totalQueries !== 1 ? "ies" : "y"} this
+                  session.
                 </p>
               </div>
             </div>
@@ -111,7 +121,10 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-3">
                   {recentQueries.map((query) => (
-                    <div key={query.id} className="bg-white dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                    <div
+                      key={query.id}
+                      className="bg-white dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-600"
+                    >
                       <p className="text-sm font-medium text-text-primary dark:text-white mb-1">
                         {query.question}
                       </p>
@@ -137,14 +150,18 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-3">
                   {uploadedFiles.map((file) => (
-                    <div key={file.id} className="bg-white dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                    <div
+                      key={file.id}
+                      className="bg-white dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-600"
+                    >
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-text-primary dark:text-white">
                             {file.name}
                           </p>
                           <p className="text-xs text-text-secondary dark:text-gray-400">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.uploadedAt).toLocaleString()}
+                            {(file.size / 1024 / 1024).toFixed(2)} MB •{" "}
+                            {new Date(file.uploadedAt).toLocaleString()}
                           </p>
                         </div>
                         <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded">

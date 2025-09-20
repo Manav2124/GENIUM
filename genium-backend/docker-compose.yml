@@ -1,21 +1,23 @@
 
 services:
-  flask-app:
+  backend-service:
     build: .
     ports:
-      - "5001:5001"
+      - "5000:5000" # merged_app.py runs on port 5000 inside container, exposed on 5000
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY} # Used for Gemini
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY} # Used for Google Search
       - GOOGLE_SEARCH_ENGINE_ID=${GOOGLE_SEARCH_ENGINE_ID}
+      - QDRANT_URL=http://vector-db:6333 # Connect to Qdrant service
     depends_on:
       - vector-db
     volumes:
       - .:/app
     networks:
       - genium-network
-    command: python app.py
+    command: python main_app.py
 
   vector-db:
     image: qdrant/qdrant

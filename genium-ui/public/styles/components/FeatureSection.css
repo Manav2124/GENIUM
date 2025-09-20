@@ -1,0 +1,20 @@
+.overview-future-section .flex.flex-col.items-center.justify-center.text-center.border {
+  width: 4cm !important;
+  height: 4cm !important;
+  padding: 0.5rem !important; /* Adjusted padding for 4cm x 4cm card */
+  background-color: var(--background, #ffffff); /* Ensure theme-appropriate background for light mode */
+  transition: all 0.3s ease; /* Ensure smooth transition for custom styles */
+}
+
+.overview-future-section .flex.flex-col.items-center.justify-center.text-center.border:hover {
+  border-color: var(--primary, #3b82f6) !important; /* Highlight border on hover */
+}
+
+.dark .overview-future-section .flex.flex-col.items-center.justify-center.text-center.border {
+  background-color: var(--card, #1f2937); /* Ensure theme-appropriate background for dark mode */
+  transition: all 0.3s ease; /* Ensure smooth transition for custom styles */
+}
+
+.dark .overview-future-section .flex.flex-col.items-center.justify-center.text-center.border:hover {
+  border-color: var(--primary, #3b82f6) !important; /* Highlight border on hover in dark mode */
+}

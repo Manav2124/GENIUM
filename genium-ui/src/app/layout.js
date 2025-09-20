@@ -3,6 +3,7 @@ import './globals.css'
 import SessionProviderWrapper from '../components/SessionProviderWrapper';
 import { UserDataProvider } from '../components/UserDataContext';
 import { getSession } from 'next-auth/react';
+import { ThemeProvider } from 'next-themes';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -16,13 +17,15 @@ export default async function RootLayout({ children }) {
   const userId = session?.user?.id || null;
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <SessionProviderWrapper>
-          <UserDataProvider userId={userId}>
-            {children}
-          </UserDataProvider>
-        </SessionProviderWrapper>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <SessionProviderWrapper>
+            <UserDataProvider userId={userId}>
+              {children}
+            </UserDataProvider>
+          </SessionProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

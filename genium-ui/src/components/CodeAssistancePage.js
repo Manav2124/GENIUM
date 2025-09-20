@@ -45,7 +45,7 @@ const CodeAssistancePage = ({ onBack }) => {
     setSelectedFileContent('');
 
     try {
-      const res = await fetch('/api/prompt-to-code', { // Use the new API endpoint
+      const res = await fetch('http://localhost:5000/promptcode/generate-code', { // Use the new API endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -164,9 +164,17 @@ const CodeAssistancePage = ({ onBack }) => {
   };
 
   return (
-    <div className="flex min-h-screen bg-white dark:bg-black text-black dark:text-white pt-32 px-32"> {/* Increased top padding (pt-32) and horizontal padding (px-32) */}
+    <div className="relative flex min-h-screen bg-white dark:bg-black text-black dark:text-white pt-32 px-32"> {/* Increased top padding (pt-32) and horizontal padding (px-32) */}
+      {/* Back to Explore Button */}
+      <button
+        onClick={onBack} // Use the onBack prop for navigation
+        className="absolute top-24 left-16 text-gray-800 hover:text-gray-900 transition-colors duration-200 cursor-pointer flex items-center space-x-1 z-10"
+      >
+        <span className="text-lg">←</span> <span>Back to Explore</span>
+      </button>
+
       {/* Left Sidebar */}
-      <aside className="w-64 bg-gray-100 dark:bg-gray-900 shadow-md flex flex-col p-4 rounded-lg my-4 border border-gray-300 dark:border-gray-700"> {/* Added margin, rounded corners, and border */}
+      <aside className="w-96 bg-gray-100 dark:bg-gray-900 shadow-md flex flex-col p-4 rounded-lg my-4 border border-gray-300 dark:border-gray-700"> {/* Added margin, rounded corners, and border */}
         {/* Theme Toggle */}
 
         {/* Siri-style animation */}
@@ -192,10 +200,17 @@ const CodeAssistancePage = ({ onBack }) => {
 
       {/* Main Content Area */}
       <main className="flex-1 p-4 overflow-auto my-4 ml-8 bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md border border-gray-300 dark:border-gray-700"> {/* Increased left margin (ml-8) */}
-        <h1 className="text-2xl font-bold mb-4">Backend Response:</h1>
-        <pre className="bg-gray-200 dark:bg-gray-700 p-4 rounded-md shadow-sm whitespace-pre-wrap"> {/* Adjusted background for pre */}
-          {response}
-        </pre>
+        {isGenerating ? (
+          <div className="flex justify-center items-center h-full">
+            <AITextLoading />
+          </div>
+        ) : (
+          response && (
+            <pre className="bg-gray-200 dark:bg-gray-700 p-4 rounded-md shadow-sm whitespace-pre-wrap">
+              {response}
+            </pre>
+          )
+        )}
       </main>
     </div>
   );

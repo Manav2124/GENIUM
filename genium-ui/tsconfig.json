@@ -8,7 +8,8 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "app/*": ["app/*"]
+      "app/*": ["app/*"],
+      "@/*": ["./src/*"]
     },
     "allowJs": true,
     "skipLibCheck": true,

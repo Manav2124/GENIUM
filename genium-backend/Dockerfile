@@ -19,9 +19,9 @@ RUN useradd -m -u 1000 flask && chown -R flask:flask /app
 USER flask
 
 # Expose port
-EXPOSE 5001
+EXPOSE 5000
 
 # Health check (optional for Flask, but good practice)
-# HEALTHCHECK CMD curl --fail http://localhost:5001/api/health
+# HEALTHCHECK CMD curl --fail http://localhost:5000/health
 
-CMD ["python", "app.py"]
+CMD ["python", "main_app.py"]

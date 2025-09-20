@@ -22,10 +22,12 @@ except ImportError:
         print("Backend: FAISS not available, will use basic in-memory storage")
         FAISS = None
 from openai import OpenAI
+import google.generativeai as genai # Import Google Generative AI
+
 # Removed datetime and uuid imports
 
 # Load environment variables
-load_dotenv()
+load_dotenv(dotenv_path='../.env') # Explicitly load .env from parent directory
 
 # Removed user data directory setup
 
@@ -38,12 +40,20 @@ NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
 if not NEXTAUTH_SECRET:
     raise ValueError("NEXTAUTH_SECRET environment variable not set.")
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client (retained for existing functionality)
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Initialize Gemini client
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_model = genai.GenerativeModel('gemini-pro') # Or 'gemini-1.5-pro'
+else:
+    gemini_model = None
+    print("WARNING: GEMINI_API_KEY not found. Gemini API will not be available.")
 
 # Initialize embeddings model
 embedding_model = OpenAIEmbeddings(model="text-embedding-3-large")
-
 def jwt_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -337,14 +347,38 @@ def get_answer(user_id, query, global_search=False):
     {context}
     """
 
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query},
+    answer = None
+
+    if gemini_model:
+        gemini_messages = [
+            {'role': 'user', 'parts': [system_prompt]},
+            {'role': 'user', 'parts': [query]}
         ]
-    )
-    answer = response.choices[0].message.content
+        try:
+            gemini_response = gemini_model.generate_content(gemini_messages, safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'})
+            answer = gemini_response.candidates[0].content.parts[0].text
+        except Exception as e:
+            print(f"Gemini API error in get_answer: {e}")
+            answer = None # Reset to try OpenAI
+
+    if answer is None and openai_client.api_key:
+        try:
+            openai_response = openai_client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": query},
+                ],
+                max_tokens=1000,
+                temperature=0.1
+            )
+            answer = openai_response.choices[0].message.content
+        except Exception as e:
+            print(f"OpenAI API error in get_answer: {e}")
+            answer = None
+
+    if answer is None:
+        return get_fallback_answer(query, True)
     # Post-process to remove unwanted highlight tags
     answer = answer.replace('"highlight-keyword">', '').replace('"highlight-phrase">', '')
     return answer
@@ -437,16 +471,39 @@ def get_document_answer(user_id, query):
 
         print("Backend: Making OpenAI API call...")
 
-        # Make OpenAI API call with error handling
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": query},
-            ],
-            max_tokens=1000,
-            temperature=0.1
-        )
+        answer = None
+
+        if gemini_model:
+            gemini_messages = [
+                {'role': 'user', 'parts': [system_prompt]},
+                {'role': 'user', 'parts': [query]}
+            ]
+            try:
+                gemini_response = gemini_model.generate_content(gemini_messages, safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'})
+                answer = gemini_response.candidates[0].content.parts[0].text
+            except Exception as e:
+                print(f"Gemini API error in get_document_answer: {e}")
+                answer = None
+
+        if answer is None and openai_client.api_key:
+            try:
+                openai_response = openai_client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": query},
+                    ],
+                    max_tokens=1000,
+                    temperature=0.1
+                )
+                answer = openai_response.choices[0].message.content
+            except Exception as e:
+                print(f"OpenAI API error in get_document_answer: {e}")
+                answer = None
+        
+        if answer is None:
+            print("Backend: Neither Gemini nor OpenAI could generate a document answer.")
+            return get_fallback_answer(query, True)
 
         if not response.choices or not response.choices[0].message.content:
             print("Backend: OpenAI returned empty response")
@@ -511,15 +568,39 @@ def get_google_answer(query):
         {google_results}
         """
 
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": query},
-            ],
-            max_tokens=1000,
-            temperature=0.1
-        )
+        answer = None
+
+        if gemini_model:
+            gemini_messages = [
+                {'role': 'user', 'parts': [system_prompt]},
+                {'role': 'user', 'parts': [query]}
+            ]
+            try:
+                gemini_response = gemini_model.generate_content(gemini_messages, safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'})
+                answer = gemini_response.candidates[0].content.parts[0].text
+            except Exception as e:
+                print(f"Gemini API error in get_google_answer: {e}")
+                answer = None
+
+        if answer is None and openai_client.api_key:
+            try:
+                openai_response = openai_client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": query},
+                    ],
+                    max_tokens=1000,
+                    temperature=0.1
+                )
+                answer = openai_response.choices[0].message.content
+            except Exception as e:
+                print(f"OpenAI API error in get_google_answer: {e}")
+                answer = None
+        
+        if answer is None:
+            print("Backend: Neither Gemini nor OpenAI could generate a Google answer.")
+            return "I couldn't generate a response from the web search results. Please try again later."
 
         if not response.choices or not response.choices[0].message.content:
             return "I couldn't generate a response from the web search results. Please try again later."
@@ -631,7 +712,7 @@ def health_check():
     try:
         if client:
             # Try a simple API call (this might cost a small amount)
-            test_response = client.chat.completions.create(
+            test_response = openai_client.chat.completions.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": "test"}],
                 max_tokens=5
@@ -642,6 +723,7 @@ def health_check():
                 health_status["services"]["openai"] = "no_response"
         else:
             health_status["services"]["openai"] = "not_configured"
+
     except Exception as e:
         error_str = str(e).lower()
         if "api key" in error_str or "authentication" in error_str:
@@ -651,6 +733,26 @@ def health_check():
         else:
             health_status["services"]["openai"] = f"error: {str(e)}"
         print(f"Health check - OpenAI error: {str(e)}")
+
+    # Check Gemini connection
+    try:
+        if gemini_model:
+            test_response = gemini_model.generate_content("test", safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'})
+            if test_response and test_response.candidates:
+                health_status["services"]["gemini"] = "connected"
+            else:
+                health_status["services"]["gemini"] = "no_response"
+        else:
+            health_status["services"]["gemini"] = "not_configured"
+    except Exception as e:
+        error_str = str(e).lower()
+        if "api key" in error_str or "authentication" in error_str:
+            health_status["services"]["gemini"] = "auth_error"
+        elif "rate limit" in error_str:
+            health_status["services"]["gemini"] = "rate_limited"
+        else:
+            health_status["services"]["gemini"] = f"error: {str(e)}"
+        print(f"Health check - Gemini error: {str(e)}")
 
     # Determine overall status
     if any(status in ["error", "auth_error", "not_configured"] for status in health_status["services"].values()):
@@ -1447,4 +1549,4 @@ def get_file_extension(language):
     return extensions.get(language, 'txt')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

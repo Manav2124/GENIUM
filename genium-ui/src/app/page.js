@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 // Dynamically import components that might cause SSR issues
+const ThemeSwitcher = dynamic(() => import('../components/ThemeSwitcher'), { ssr: false });
 const Profile = dynamic(() => import('../components/Profile'), { ssr: false });
 const WrapButton = dynamic(() => import('../components/ui/wrap-button'), { ssr: false });
 const PricingSection = dynamic(() => import('../components/ui/pricing.tsx').then(mod => ({ default: mod.PricingSection })), { ssr: false });
@@ -24,8 +25,7 @@ const DialogContent = dynamic(() => import('../components/ui/dialog').then(mod =
 const DialogTrigger = dynamic(() => import('../components/ui/dialog').then(mod => mod.DialogTrigger), { ssr: false });
 const DialogHeader = dynamic(() => import('../components/ui/dialog').then(mod => mod.DialogHeader), { ssr: false });
 const DialogTitle = dynamic(() => import('../components/ui/dialog').then(mod => mod.DialogTitle), { ssr: false });
-const LiquidButton = dynamic(() => import('../components/ui/liquid-glass-button').then(mod => ({ default: mod.LiquidButton })), { ssr: false });
-const ChatUI = dynamic(() => import('../components/ChatUI'), { ssr: false });
+// const LiquidButton = dynamic(() => import('../components/ui/liquid-glass-button').then(mod => ({ default: mod.LiquidButton })), { ssr: false });
 import { FileUp, Landmark, ShieldCheck, Zap, Menu, CircleCheckIcon, X, Globe, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { uploadFileToBackend, askDocumentQuestion, askQuestionWithGlobalSearch } from '../utils/api'; // Import the API functions
@@ -334,46 +334,19 @@ const FeatureIcon = ({ icon: Icon, title, description }) => (
 );
 
 export default function Home() {
-  // Auth0 related code removed.
-  // const { user, error: authError, isLoading, isAuthenticated } = useUser();
-  // console.log('Auth0 User:', user);
-  // console.log('Auth0 isAuthenticated:', isAuthenticated);
-  // console.log('Auth0 isLoading:', isLoading);
-  // console.log('Auth0 Error:', authError);
-
+  const router = useRouter();
   const { data: session } = useSession();
-  // Removed user data context usage
 
-  // State to store the JWT token
+  const [isClient, setIsClient] = useState(false);
   const [jwtToken, setJwtToken] = useState(null);
-
   const [menuOpen, setMenuOpen] = useState(false);
   const [navMenuOpen, setNavMenuOpen] = useState(false);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [currentPage, setCurrentPage] = useState('overview'); // Default to 'overview'
-
-  useEffect(() => {
-    const page = searchParams.get('page');
-    const savedPage = localStorage.getItem('currentPage');
-
-    if (page) {
-      setCurrentPage(page);
-      localStorage.setItem('currentPage', page);
-    } else if (savedPage) {
-      setCurrentPage(savedPage);
-      router.replace(`/?page=${savedPage}`, undefined, { shallow: true });
-    } else {
-      setCurrentPage('overview');
+  const [currentPage, setCurrentPage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('currentPage') || 'overview';
     }
-  }, [searchParams, router]);
-
-  const handlePageChange = useCallback((page) => {
-    setCurrentPage(page);
-    localStorage.setItem('currentPage', page);
-    router.push(`/?page=${page}`, undefined, { shallow: true });
-  }, [router]);
-
+    return 'overview';
+  });
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [showUploadSuccess, setShowUploadSuccess] = useState(false);
   const [fileProcessed, setFileProcessed] = useState(false);
@@ -390,7 +363,20 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [lastGlobalSearchUsed, setLastGlobalSearchUsed] = useState(false);
-  const [isGlobalSearchOn, setIsGlobalSearchOn] = useState(false); // New state for global search toggle
+  const [isGlobalSearchOn, setIsGlobalSearchOn] = useState(false);
+
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient && typeof window !== 'undefined') {
+      localStorage.setItem('currentPage', currentPage);
+    }
+  }, [currentPage, isClient]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -402,12 +388,8 @@ export default function Home() {
     };
   }, []);
 
-
-
-  // Function to get NextAuth JWT token from API
   const getJwtToken = useCallback(async () => {
     try {
-      // Mock token for internal handling
       const token = 'mock-jwt-token-' + Date.now();
       console.log('Mock JWT token generated in page.js:', token ? token.substring(0, 20) + '...' : 'null');
       console.log('Mock JWT token length:', token?.length);
@@ -418,7 +400,6 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch JWT token when session changes
   useEffect(() => {
     const fetchJwtToken = async () => {
       if (session?.user) {
@@ -450,7 +431,6 @@ export default function Home() {
       return;
     }
 
-    // Allow anonymous questions - authentication is optional
     const token = jwtToken || await getJwtToken();
 
     setCurrentQuestion(question);
@@ -462,22 +442,19 @@ export default function Home() {
     setGoogleAnswer('');
 
     try {
-      // Get document answer from backend
       const documentResponse = await askDocumentQuestion(question, token);
       const documentAnswerText = documentResponse.answer;
 
       setDocumentAnswer(documentAnswerText);
-      setAnswer(documentAnswerText); // Set combined answer for backward compatibility
+      setAnswer(documentAnswerText);
 
       if (globalSearch) {
-        // If global search is ON, get web search results
         setIsFetchingGoogle(true);
         try {
           const globalResponse = await askQuestionWithGlobalSearch(question, true, token);
           const googleAnswerText = globalResponse.answer;
 
           setGoogleAnswer(googleAnswerText);
-          // Update combined answer with both document and web results
           setAnswer(`${documentAnswerText}\n\n--- Answer from the Web ---\n\n${googleAnswerText}`);
         } catch (googleErr) {
           console.error('Global search failed:', googleErr);
@@ -488,18 +465,14 @@ export default function Home() {
           setIsFetchingGoogle(false);
         }
       }
-
-      // Removed user data context usage
     } catch (err) {
       console.error('Document query failed:', err);
 
-      // Handle different types of network/API errors
       let errorMessage = 'Sorry, something went wrong while getting the answer.';
 
       if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
         errorMessage = 'Unable to connect to the server. Please check if the backend service is running and try again.';
       } else if (err.response) {
-        // Server responded with an error status
         if (err.response.status === 500) {
           errorMessage = 'Server error occurred. Please try again in a moment.';
         } else if (err.response.status === 429) {
@@ -508,7 +481,6 @@ export default function Home() {
           errorMessage = err.response.data.error;
         }
       } else if (err.request) {
-        // Network error
         errorMessage = 'Network error. Please check your internet connection and try again.';
       }
 
@@ -534,18 +506,17 @@ export default function Home() {
     const currentUserId = userId || session?.user?.id;
     console.log('Current user ID to use:', currentUserId);
 
-    // Allow anonymous uploads
     const token = jwtToken || accessToken || await getJwtToken();
 
     console.log('=== UPLOAD DEBUG END ===');
 
     setIsUploading(true);
     setError('');
-    setUploadError(''); // Clear previous upload errors
-    setFileProcessed(false); // Reset state before upload
+    setUploadError('');
+    setFileProcessed(false);
 
     try {
-      const response = await uploadFileToBackend(file, currentUserId, token); // Use the centralized upload function
+      const response = await uploadFileToBackend(file, currentUserId, token);
       setFileProcessed(true);
       setShowUploadSuccess(true);
       console.log('File upload successful:', response);
@@ -556,46 +527,40 @@ export default function Home() {
         errorMessage = err.message;
       }
       setUploadError(errorMessage);
-      setFileProcessed(false); // Ensure input stays disabled on error
+      setFileProcessed(false);
     } finally {
       setIsUploading(false);
     }
   }, [session, getJwtToken, jwtToken]);
 
   const handleCodeClick = () => {
-    handlePageChange('code-assistance');
+    setCurrentPage('code-assistance');
   };
 
   const handleDocumentQAClick = () => {
-    handlePageChange('document-qa');
+    setCurrentPage('document-qa');
   };
 
   const handleFileUpload = useCallback((selectedFile) => {
     if (!selectedFile) return;
-
-    // File validation is now handled by FileUpload component
-    // Note: fileProcessed state is managed by handleUpload function
     setError('');
-    // Note: handleUpload is called directly by FileUpload component via uploadFunction prop
   }, []);
 
   const handleTryGeniumClick = () => {
-    handlePageChange('try-genium');
+    setCurrentPage('try-genium');
   };
 
   const handleBackToExplore = () => {
-    handlePageChange('try-genium');
+    setCurrentPage('try-genium');
   };
 
   const handleBackToOverview = () => {
-    handlePageChange('overview');
+    setCurrentPage('overview');
   };
 
   const handleDocsClick = () => {
-    handlePageChange('docs');
+    setCurrentPage('docs');
   };
-
-
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -615,40 +580,31 @@ export default function Home() {
               <div className="flex-1 flex justify-center">
                 <div className="hidden md:flex items-center gap-4">
                   <button
-                    onClick={() => handlePageChange('overview')}
+                    onClick={() => setCurrentPage('overview')}
                     className={cn(
                       "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                      currentPage === 'overview' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
+                      isMounted && currentPage === 'overview' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
                     )}
                   >
                     Overview
                   </button>
                   <button
-                    onClick={() => handlePageChange('plan')}
+                    onClick={() => setCurrentPage('plan')}
                     className={cn(
                       "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                      currentPage === 'plan' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
+                      isMounted && currentPage === 'plan' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
                     )}
                   >
                     Plan
                   </button>
                   <button
-                    onClick={handleDocsClick}
+                    onClick={() => setCurrentPage('docs')}
                     className={cn(
                       "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                      currentPage === 'docs' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
+                      isMounted && currentPage === 'docs' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
                     )}
                   >
                     Docs
-                  </button>
-                  <button
-                    onClick={() => handlePageChange('chat')}
-                    className={cn(
-                      "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                      currentPage === 'chat' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
-                    )}
-                  >
-                    Chat
                   </button>
                 </div>
               </div>
@@ -659,6 +615,7 @@ export default function Home() {
                     <Menu className="w-5 h-5" />
                   </button>
                 </div>
+                <ThemeSwitcher />
                 <Dialog open={showSignupModal} onOpenChange={setShowSignupModal}>
                   <DialogTrigger asChild>
                     <button className="text-sm font-medium text-foreground hover:text-primary">Sign Up</button>
@@ -678,121 +635,115 @@ export default function Home() {
         <div className="md:hidden fixed top-16 left-0 right-0 bg-background/95 backdrop-blur-lg border-b z-10">
           <div className="flex flex-col items-center gap-2 py-4">
             <button
-              onClick={() => { handlePageChange('overview'); setNavMenuOpen(false); }}
+              onClick={() => { setCurrentPage('overview'); setNavMenuOpen(false); }}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                currentPage === 'overview' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
+                isMounted && currentPage === 'overview' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
               )}
             >
               Overview
             </button>
             <button
-              onClick={() => { handlePageChange('plan'); setNavMenuOpen(false); }}
+              onClick={() => { setCurrentPage('plan'); setNavMenuOpen(false); }}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                currentPage === 'plan' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
+                isMounted && currentPage === 'plan' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
               )}
             >
               Plan
-            </button>
-            <button
-              onClick={() => { handleDocsClick(); setNavMenuOpen(false); }}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                currentPage === 'docs' ? "bg-accent text-accent-foreground font-bold" : "text-foreground"
-              )}
-            >
-              Docs
             </button>
           </div>
         </div>
       )}
 
-      <div>
-        <aside className={`w-0 md:w-0 bg-surface dark:bg-surface-dark p-0 flex flex-col transition-all duration-300 ${menuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} fixed md:static top-14 bottom-0 z-20`}>
-          <div className="flex-1 overflow-y-auto space-y-1">
-          </div>
-        </aside>
-
-        {currentPage === 'chat' && (
-          <ChatUI />
-        )}
-
-        <main className={`${showAuthModal ? 'blur-active' : ''}`}>
-          {currentPage === 'overview' && (
-            <>
-              <section className="flex flex-col items-center justify-center text-center pt-48 pb-16 px-6 max-w-3xl mx-auto">
-                <div className="text-5xl md:text-7xl font-medium mb-4 text-text-primary dark:text-white font-roboto flex flex-col items-center">
-                  <span>Understand</span>
-                  <span className="gradient-text">anything</span>
-                </div>
-                <p className="text-lg text-text-secondary dark:text-gray-300 mb-8 max-w-xl">
-                  Your research and thinking partner, grounded in the information that you trust, built with the latest GENIUM models.
-                </p>
-                <div className="flex justify-center">
-                  <WrapButton className="mt-4" onClick={handleTryGeniumClick}>
-                    Try Genium
-                  </WrapButton>
-                </div>
-              </section>
-
-              <section className="py-12 bg-surface dark:bg-surface-dark">
-                <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 px-6">
-                  <FeatureIcon icon={FileUp} title="Upload" description="Easily upload your files and documents for instant analysis." />
-                  <FeatureIcon icon={Landmark} title="Knowledge" description="Tap into a vast knowledge base for accurate answers." />
-                  <FeatureIcon icon={ShieldCheck} title="Privacy" description="Your data is secure and private, always." />
-                  <FeatureIcon icon={Zap} title="Fast" description="Get instant responses powered by advanced AI." />
-                </div>
-              </section>
-              <PrivacySection />
-            </>
-          )}
-
-          {currentPage === 'try-genium' && (
-            <div className="min-h-screen flex flex-col items-center justify-center py-16 px-6 pt-32">
-              <div className="w-full max-w-6xl mb-8">
-                <button
-                  onClick={() => handlePageChange('overview')}
-                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                >
-                  ← Back to Overview
-                </button>
+      {!isClient ? (
+        <div className="flex flex-grow items-center justify-center">
+          {/* Optional: Add a loading spinner or placeholder here */}
+          Loading...
+        </div>
+      ) : (
+        <>
+          <div>
+            <aside className={`w-0 md:w-0 bg-surface dark:bg-surface-dark p-0 flex flex-col transition-all duration-300 ${menuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} fixed md:static top-14 bottom-0 z-20`}>
+              <div className="flex-1 overflow-y-auto space-y-1">
               </div>
+            </aside>
 
-              <div className="text-center mb-12">
-                <h1 className="text-4xl md:text-5xl font-bold mb-4 text-text-primary dark:text-white">
-                  Explore GENIUM
-                </h1>
-                <p className="text-lg text-text-secondary dark:text-gray-300 max-w-2xl">
-                  Choose the feature you'd like to experience. Click any card to flip and explore our AI-powered tools.
-                </p>
-              </div>
+            <main className={`${showAuthModal ? 'blur-active' : ''}`}>
+              {currentPage === 'overview' && (
+                <>
+                  <section className="flex flex-col items-center justify-center text-center pt-48 pb-16 px-6 max-w-3xl mx-auto">
+                    <div className="text-5xl md:text-7xl font-medium mb-4 text-text-primary dark:text-white font-roboto flex flex-col items-center">
+                      <span>Understand</span>
+                      <span className="gradient-text">anything</span>
+                    </div>
+                    <p className="text-lg text-text-secondary dark:text-gray-300 mb-8 max-w-xl">
+                      Your research and thinking partner, grounded in the information that you trust, built with the latest GENIUM models.
+                    </p>
+                    <div className="flex justify-center">
+                      <WrapButton className="mt-4" onClick={handleTryGeniumClick}>
+                        Try Genium
+                      </WrapButton>
+                    </div>
+                  </section>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
-                <div className="flex justify-center">
-                  <CardFlip
-                    type="prompt-to-code"
-                    onActionClick={handleCodeClick}
-                  />
+                  <section className="py-12 bg-surface dark:bg-surface-dark">
+                    <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 px-6">
+                      <FeatureIcon icon={FileUp} title="Upload" description="Easily upload your files and documents for instant analysis." />
+                      <FeatureIcon icon={Landmark} title="Knowledge" description="Tap into a vast knowledge base for accurate answers." />
+                      <FeatureIcon icon={ShieldCheck} title="Privacy" description="Your data is secure and private, always." />
+                      <FeatureIcon icon={Zap} title="Fast" description="Get instant responses powered by advanced AI." />
+                    </div>
+                  </section>
+                  <PrivacySection />
+                </>
+              )}
+
+              {currentPage === 'try-genium' && (
+                <div className="min-h-screen flex flex-col items-center justify-center py-16 px-6 pt-32">
+                  <div className="w-full max-w-6xl mb-8">
+                    <button
+                      onClick={() => setCurrentPage('overview')}
+                      className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      ← Back to Overview
+                    </button>
+                  </div>
+
+                  <div className="text-center mb-12">
+                    <h1 className="text-4xl md:text-5xl font-bold mb-4 text-text-primary dark:text-white">
+                      Explore GENIUM
+                    </h1>
+                    <p className="text-lg text-text-secondary dark:text-gray-300 max-w-2xl">
+                      Choose the feature you'd like to experience. Click any card to flip and explore our AI-powered tools.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
+                    <div className="flex justify-center">
+                      <CardFlip
+                        type="prompt-to-code"
+                        onActionClick={handleCodeClick}
+                      />
+                    </div>
+
+                    <div className="flex justify-center">
+                      <CardFlip
+                        type="document-qa"
+                        onActionClick={handleDocumentQAClick}
+                      />
+                    </div>
+                  </div>
                 </div>
+              )}
 
-                <div className="flex justify-center">
-                  <CardFlip
-                    type="document-qa"
-                    onActionClick={handleDocumentQAClick}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+              {currentPage === 'code-assistance' && (
+                <CodeAssistancePage onBack={handleBackToExplore} />
+              )}
 
-          {currentPage === 'code-assistance' && (
-            <CodeAssistancePage onBack={handleBackToExplore} />
-          )}
-
-          {showCodeModal && (
-            <CodeModal
-              code={`// Example Code Snippet
+              {showCodeModal && (
+                <CodeModal
+                  code={`// Example Code Snippet
 function greet(name) {
   console.log(\`Hello, \${name}!\`);
 }
@@ -802,309 +753,311 @@ greet('Genium User');
 // AI-powered code assistance
 // Get suggestions, explanations, and improvements
 // Powered by the latest GENIUM models`}
-              onClose={() => setShowCodeModal(false)}
-            />
-          )}
+                  onClose={() => setShowCodeModal(false)}
+                />
+              )}
 
 
-          {currentPage === 'plan' && (
-            <div className="flex min-h-screen items-center justify-center py-32">
-              <PricingSection
-                plans={PLANS}
-                heading="Plans that Scale with You"
-                description="Whether you're just starting out or growing fast, our flexible pricing has you covered — with no hidden costs."
-              />
-            </div>
-          )}
+              {currentPage === 'plan' && (
+                <div className="flex min-h-screen items-center justify-center py-32">
+                  <PricingSection
+                    plans={PLANS}
+                    heading="Plans that Scale with You"
+                    description="Whether you're just starting out or growing fast, our flexible pricing has you covered — with no hidden costs."
+                  />
+                </div>
+              )}
 
-          {currentPage === 'document-qa' && (
-            <div className="document-qa-page flex flex-col h-full p-6 pt-32">
-              <div className="w-full max-w-7xl mx-auto mb-4">
-                <button
-                  onClick={handleBackToExplore}
-                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                >
-                  ← Back to Explore
-                </button>
-              </div>
-
-              <div className="flex-grow flex gap-6 max-w-7xl mx-auto w-full">
-                <div className="w-1/3 flex flex-col gap-6">
-                  <div className="bg-surface dark:bg-surface-dark rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-bold mb-4">Upload Document</h2>
-                    <FileUpload
-                      onUploadSuccess={handleFileUpload}
-                      onUploadError={setUploadError}
-                      acceptedFileTypes={['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']}
-                      maxFileSize={10 * 1024 * 1024} // 10MB
-                      uploadFunction={handleUpload}
-                      userId={session?.user?.id} // Pass userId directly to FileUpload component
-                      accessToken={jwtToken} // Pass JWT token for backend authentication
-                      onUploadStart={() => {
-                        setShowUploadSuccess(false);
-                        setUploadError('');
-                      }}
-                      onFileRemove={() => {
-                        setFileProcessed(false);
-                        setShowUploadSuccess(false);
-                        setUploadError('');
-                      }}
-                    />
-                    {uploadError && (
-                      <div className="p-3 bg-red-900 border border-red-700 rounded text-red-200 mt-4">
-                        {uploadError.message || uploadError}
-                      </div>
-                    )}
-                    {isUploading && (
-                      <div className="flex items-center justify-center p-4">
-                        <p>Uploading file...</p>
-                      </div>
-                    )}
-                    {showUploadSuccess && !isUploading && (
-                      <div className="bg-white dark:bg-gray-900 shadow-lg rounded-lg px-6 py-3 flex items-center justify-center transition-opacity duration-300 z-20 my-4">
-                        <CircleCheckIcon className="me-3 -mt-0.5 inline-flex text-emerald-500" size={20} aria-hidden="true" />
-                        <span className="text-sm text-gray-900 dark:text-white">The file has been uploaded successfully!</span>
-                      </div>
-                    )}
+              {currentPage === 'document-qa' && (
+                <div className="document-qa-page flex flex-col h-full p-6 pt-32">
+                  <div className="w-full max-w-7xl mx-auto mb-4">
+                    <button
+                      onClick={handleBackToExplore}
+                      className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      ← Back to Explore
+                    </button>
                   </div>
-                  <div className="bg-surface dark:bg-surface-dark rounded-lg p-6 flex-grow border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold">Ask a Question</h2>
-                      <div className="flex items-center gap-2">
-                        <Globe className={cn("w-5 h-5", isGlobalSearchOn ? "text-blue-600" : "text-gray-400")} />
-                        <label htmlFor="global-search-toggle" className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            id="global-search-toggle"
-                            className="sr-only peer"
-                            checked={isGlobalSearchOn}
-                            onChange={() => setIsGlobalSearchOn(!isGlobalSearchOn)}
-                            disabled={!fileProcessed || isUploading || isAsking}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                          <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                            {isGlobalSearchOn ? 'ON' : 'OFF'}
-                          </span>
-                        </label>
+
+                  <div className="flex-grow flex gap-6 max-w-7xl mx-auto w-full">
+                    <div className="w-1/3 flex flex-col gap-6">
+                      <div className="bg-surface dark:bg-surface-dark rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+                        <h2 className="text-xl font-bold mb-4">Upload Document</h2>
+                        <FileUpload
+                          onUploadSuccess={handleFileUpload}
+                          onUploadError={setUploadError}
+                          acceptedFileTypes={['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']}
+                          maxFileSize={10 * 1024 * 1024} // 10MB
+                          uploadFunction={handleUpload}
+                          userId={session?.user?.id} // Pass userId directly to FileUpload component
+                          accessToken={jwtToken} // Pass JWT token for backend authentication
+                          onUploadStart={() => {
+                            setShowUploadSuccess(false);
+                            setUploadError('');
+                          }}
+                          onFileRemove={() => {
+                            setFileProcessed(false);
+                            setShowUploadSuccess(false);
+                            setUploadError('');
+                          }}
+                        />
+                        {uploadError && (
+                          <div className="p-3 bg-red-900 border border-red-700 rounded text-red-200 mt-4">
+                            {uploadError.message || uploadError}
+                          </div>
+                        )}
+                        {isUploading && (
+                          <div className="flex items-center justify-center p-4">
+                            <p>Uploading file...</p>
+                          </div>
+                        )}
+                        {showUploadSuccess && !isUploading && (
+                          <div className="bg-white dark:bg-gray-900 shadow-lg rounded-lg px-6 py-3 flex items-center justify-center transition-opacity duration-300 z-20 my-4">
+                            <CircleCheckIcon className="me-3 -mt-0.5 inline-flex text-emerald-500" size={20} aria-hidden="true" />
+                            <span className="text-sm text-gray-900 dark:text-white">The file has been uploaded successfully!</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="bg-surface dark:bg-surface-dark rounded-lg p-6 flex-grow border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-xl font-bold">Ask a Question</h2>
+                          <div className="flex items-center gap-2">
+                            <Globe className={cn("w-5 h-5", isGlobalSearchOn ? "text-blue-600" : "text-gray-400")} />
+                            <label htmlFor="global-search-toggle" className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                id="global-search-toggle"
+                                className="sr-only peer"
+                                checked={isGlobalSearchOn}
+                                onChange={() => setIsGlobalSearchOn(!isGlobalSearchOn)}
+                                disabled={!fileProcessed || isUploading || isAsking}
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                              <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+                                {isGlobalSearchOn ? 'ON' : 'OFF'}
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                        <AiInputSearch
+                          onSend={(question) => handleAskQuestion(question, isGlobalSearchOn)}
+                          disabled={!fileProcessed || isUploading || isAsking}
+                          placeholder="Ask a question about the document..."
+                        />
+                        {error && (
+                          <div className="p-3 bg-red-900 border border-red-700 rounded text-red-200 mt-4">
+                            {error}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <AiInputSearch
-                      onSend={(question) => handleAskQuestion(question, isGlobalSearchOn)}
-                      disabled={!fileProcessed || isUploading || isAsking}
-                      placeholder="Ask a question about the document..."
-                    />
-                    {error && (
-                      <div className="p-3 bg-red-900 border border-red-700 rounded text-red-200 mt-4">
-                        {error}
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                <div className="w-2/3 bg-surface dark:bg-surface-dark rounded-lg p-6 flex flex-col border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold">Response</h2>
-                    {!isAsking && answer && (
-                      <button
-                        onClick={async () => await generatePDF(
-                          `<div class="formatted-answer">${highlightKeywords(formatAnswerText(separateAnswerAndReferences(answer).mainAnswer))}</div>`,
-                          currentQuestion
+                    <div className="w-2/3 bg-surface dark:bg-surface-dark rounded-lg p-6 flex flex-col border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold">Response</h2>
+                        {!isAsking && answer && (
+                          <button
+                            onClick={async () => await generatePDF(
+                              `<div class="formatted-answer">${highlightKeywords(formatAnswerText(separateAnswerAndReferences(answer).mainAnswer))}</div>`,
+                              currentQuestion
+                            )}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download Notes
+                          </button>
                         )}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download Notes
-                      </button>
-                    )}
-                  </div>
-                  <div className="h-full overflow-y-auto bg-gray-50 dark:bg-black/50 rounded-md p-4 border border-gray-200 dark:border-gray-700">
-                    {/* Add CSS styles for highlighting */}
-                    <style jsx>{`
-                      .highlight-keyword {
-                        background-color: #fef3c7;
-                        color: #92400e;
-                        padding: 2px 4px;
-                        border-radius: 3px;
-                        font-weight: 600;
-                      }
-                      .dark .highlight-keyword {
-                        background-color: #451a03;
-                        color: #fbbf24;
-                      }
-                      .highlight-phrase {
-                        background-color: #fed7d7;
-                        color: #9b2c2c;
-                        padding: 2px 4px;
-                        border-radius: 3px;
-                        font-weight: 600;
-                        border: 1px solid #e53e3e;
-                      }
-                      .dark .highlight-phrase {
-                        background-color: #2d1810;
-                        color: #fca5a5;
-                        border-color: #dc2626;
-                      }
-                      .highlight-quote {
-                        background-color: #e0e7ff;
-                        color: #312e81;
-                        padding: 2px 4px;
-                        border-radius: 3px;
-                        font-style: italic;
-                      }
-                      .dark .highlight-quote {
-                        background-color: #1e1b4b;
-                        color: #a5b4fc;
-                      }
-                      .highlight-number {
-                        background-color: #dbeafe;
-                        color: #1e40af;
-                        padding: 1px 3px;
-                        border-radius: 2px;
-                        font-weight: 500;
-                      }
-                      .dark .highlight-number {
-                        background-color: #1e3a8a;
-                        color: #93c5fd;
-                      }
-                      .highlight-date {
-                        background-color: #dcfce7;
-                        color: #166534;
-                        padding: 1px 3px;
-                        border-radius: 2px;
-                        font-weight: 500;
-                      }
-                      .dark .highlight-date {
-                        background-color: #14532d;
-                        color: #86efac;
-                      }
-                      .formatted-answer p {
-                        margin-bottom: 1rem;
-                        line-height: 1.6;
-                      }
-                      .formatted-answer ul, .formatted-answer ol {
-                        margin-bottom: 1rem;
-                        padding-left: 1.5rem;
-                      }
-                      .formatted-answer li {
-                        margin-bottom: 0.5rem;
-                        line-height: 1.5;
-                      }
-                      .formatted-answer ul {
-                        list-style-type: disc;
-                      }
-                      .formatted-answer ol {
-                        list-style-type: decimal;
-                      }
-                    `}</style>
-                    {isAsking && (
-                      <div className="flex items-center justify-center h-full">
-                        <AITextLoading />
                       </div>
-                    )}
-                    {!isAsking && (documentAnswer || answer) && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-4">
-                          <p className="font-bold text-text-primary text-lg">{currentQuestion}</p>
-                          {lastGlobalSearchUsed && (
-                            <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
-                              <Globe className="w-3 h-3" />
-                              <span>Global Search</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Document Answer Section */}
-                        {documentAnswer && (
-                          <div className="mb-6">
-                            <h3 className="text-md font-semibold text-text-primary mb-3 flex items-center gap-2">
-                              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                              Answer from Document
-                            </h3>
-                            <div
-                              className="formatted-answer text-text-primary"
-                              dangerouslySetInnerHTML={{
-                                __html: parseMarkdownLinks(highlightKeywords(formatAnswerText(separateAnswerAndReferences(documentAnswer).mainAnswer)))
-                              }}
-                            />
+                      <div className="h-full overflow-y-auto bg-gray-50 dark:bg-black/50 rounded-md p-4 border border-gray-200 dark:border-gray-700">
+                        {/* Add CSS styles for highlighting */}
+                        <style jsx>{`
+                          .highlight-keyword {
+                            background-color: #fef3c7;
+                            color: #92400e;
+                            padding: 2px 4px;
+                            border-radius: 3px;
+                            font-weight: 600;
+                          }
+                          .dark .highlight-keyword {
+                            background-color: #451a03;
+                            color: #fbbf24;
+                          }
+                          .highlight-phrase {
+                            background-color: #fed7d7;
+                            color: #9b2c2c;
+                            padding: 2px 4px;
+                            border-radius: 3px;
+                            font-weight: 600;
+                            border: 1px solid #e53e3e;
+                          }
+                          .dark .highlight-phrase {
+                            background-color: #2d1810;
+                            color: #fca5a5;
+                            border-color: #dc2626;
+                          }
+                          .highlight-quote {
+                            background-color: #e0e7ff;
+                            color: #312e81;
+                            padding: 2px 4px;
+                            border-radius: 3px;
+                            font-style: italic;
+                          }
+                          .dark .highlight-quote {
+                            background-color: #1e1b4b;
+                            color: #a5b4fc;
+                          }
+                          .highlight-number {
+                            background-color: #dbeafe;
+                            color: #1e40af;
+                            padding: 1px 3px;
+                            border-radius: 2px;
+                            font-weight: 500;
+                          }
+                          .dark .highlight-number {
+                            background-color: #1e3a8a;
+                            color: #93c5fd;
+                          }
+                          .highlight-date {
+                            background-color: #dcfce7;
+                            color: #166534;
+                            padding: 1px 3px;
+                            border-radius: 2px;
+                            font-weight: 500;
+                          }
+                          .dark .highlight-date {
+                            background-color: #14532d;
+                            color: #86efac;
+                          }
+                          .formatted-answer p {
+                            margin-bottom: 1rem;
+                            line-height: 1.6;
+                          }
+                          .formatted-answer ul, .formatted-answer ol {
+                            margin-bottom: 1rem;
+                            padding-left: 1.5rem;
+                          }
+                          .formatted-answer li {
+                            margin-bottom: 0.5rem;
+                            line-height: 1.5;
+                          }
+                          .formatted-answer ul {
+                            list-style-type: disc;
+                          }
+                          .formatted-answer ol {
+                            list-style-type: decimal;
+                          }
+                        `}</style>
+                        {isAsking && (
+                          <div className="flex items-center justify-center h-full">
+                            <AITextLoading />
                           </div>
                         )}
-
-                        {/* Google/Web Answer Section */}
-                        {lastGlobalSearchUsed && (googleAnswer || isFetchingGoogle) && (
-                          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <h3 className="text-md font-semibold text-text-primary mb-3 flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-blue-600" />
-                              Answer from the Web
-                              {isFetchingGoogle && (
-                                <span className="text-xs text-gray-500">(Fetching...)</span>
+                        {!isAsking && (documentAnswer || answer) && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-4">
+                              <p className="font-bold text-text-primary text-lg">{currentQuestion}</p>
+                              {lastGlobalSearchUsed && (
+                                <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                                  <Globe className="w-3 h-3" />
+                                  <span>Global Search</span>
+                                </div>
                               )}
-                            </h3>
-                            {isFetchingGoogle ? (
-                              <div className="flex items-center justify-center py-4">
-                                <AITextLoading />
-                              </div>
-                            ) : googleAnswer ? (
-                              <div
-                                className="formatted-answer text-text-primary"
-                                dangerouslySetInnerHTML={{
-                                  __html: parseMarkdownLinks(highlightKeywords(formatAnswerText(googleAnswer)))
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                        )}
-
-                        {/* Legacy combined answer display for backward compatibility */}
-                        {!documentAnswer && answer && (
-                          <div className="mb-4">
-                            <div
-                              className="formatted-answer text-text-primary"
-                              dangerouslySetInnerHTML={{
-                                __html: parseMarkdownLinks(highlightKeywords(formatAnswerText(separateAnswerAndReferences(answer).mainAnswer)))
-                              }}
-                            />
-                          </div>
-                        )}
-
-                        {/* References Section - Only show if there are references */}
-                        {lastGlobalSearchUsed && separateAnswerAndReferences(answer).references.length > 0 && (
-                          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-blue-600" />
-                              References
-                            </h3>
-                            <div className="space-y-2">
-                              {separateAnswerAndReferences(answer).references.map((reference, index) => (
-                                <div
-                                  key={index}
-                                  className="text-sm text-text-secondary bg-gray-50 dark:bg-gray-800/50 rounded-md p-3 border-l-2 border-blue-500"
-                                  dangerouslySetInnerHTML={{ __html: parseMarkdownLinks(highlightKeywords(formatAnswerText(reference))) }}
-                                />
-                              ))}
                             </div>
+
+                            {/* Document Answer Section */}
+                            {documentAnswer && (
+                              <div className="mb-6">
+                                <h3 className="text-md font-semibold text-text-primary mb-3 flex items-center gap-2">
+                                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                   Answer from Document
+                                </h3>
+                                <div
+                                   className="formatted-answer text-text-primary"
+                                   dangerouslySetInnerHTML={{
+                                     __html: parseMarkdownLinks(highlightKeywords(formatAnswerText(separateAnswerAndReferences(documentAnswer).mainAnswer)))
+                                   }}
+                                />
+                              </div>
+                            )}
+
+                            {/* Google/Web Answer Section */}
+                            {lastGlobalSearchUsed && (googleAnswer || isFetchingGoogle) && (
+                              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <h3 className="text-md font-semibold text-text-primary mb-3 flex items-center gap-2">
+                                   <Globe className="w-4 h-4 text-blue-600" />
+                                   Answer from the Web
+                                   {isFetchingGoogle && (
+                                     <span className="text-xs text-gray-500">(Fetching...)</span>
+                                   )}
+                                </h3>
+                                {isFetchingGoogle ? (
+                                   <div className="flex items-center justify-center py-4">
+                                     <AITextLoading />
+                                   </div>
+                                ) : googleAnswer ? (
+                                   <div
+                                     className="formatted-answer text-text-primary"
+                                     dangerouslySetInnerHTML={{
+                                       __html: parseMarkdownLinks(highlightKeywords(formatAnswerText(googleAnswer)))
+                                     }}
+                                   />
+                                ) : null}
+                              </div>
+                            )}
+
+                            {/* Legacy combined answer display for backward compatibility */}
+                            {!documentAnswer && answer && (
+                              <div className="mb-4">
+                                <div
+                                   className="formatted-answer text-text-primary"
+                                   dangerouslySetInnerHTML={{
+                                     __html: parseMarkdownLinks(highlightKeywords(formatAnswerText(separateAnswerAndReferences(answer).mainAnswer)))
+                                   }}
+                                />
+                              </div>
+                            )}
+
+                            {/* References Section - Only show if there are references */}
+                            {lastGlobalSearchUsed && separateAnswerAndReferences(answer).references.length > 0 && (
+                              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+                                   <Globe className="w-4 h-4 text-blue-600" />
+                                   References
+                                </h3>
+                                <div className="space-y-2">
+                                  {separateAnswerAndReferences(answer).references.map((reference, index) => (
+                                    <div
+                                      key={index}
+                                      className="text-sm text-text-secondary bg-gray-50 dark:bg-gray-800/50 rounded-md p-3 border-l-2 border-blue-500"
+                                      dangerouslySetInnerHTML={{ __html: parseMarkdownLinks(highlightKeywords(formatAnswerText(reference))) }}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {!isAsking && !answer && (
+                          <div className="flex items-center justify-center h-full text-text-secondary">
+                            <p>The answer will appear here.</p>
                           </div>
                         )}
                       </div>
-                    )}
-                    {!isAsking && !answer && (
-                      <div className="flex items-center justify-center h-full text-text-secondary">
-                        <p>The answer will appear here.</p>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {currentPage === 'docs' && (
-            <DocsPage onBack={handleBackToOverview} />
-          )}
-        </main>
-      </div>
+              {currentPage === 'docs' && (
+                <DocsPage onBack={handleBackToOverview} />
+              )}
+            </main>
+          </div>
 
 
-      {currentPage !== 'plan' && currentPage !== 'try-genium' && currentPage !== 'document-qa' && currentPage !== 'code-assistance' && currentPage !== 'docs' && currentPage !== 'chat' && <Footer setCurrentPage={setCurrentPage} />}
+          {currentPage !== 'plan' && currentPage !== 'try-genium' && currentPage !== 'document-qa' && currentPage !== 'code-assistance' && currentPage !== 'docs' && <Footer setCurrentPage={setCurrentPage} />}
+        </>
+      )}
     </div>
   );
 }

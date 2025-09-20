@@ -1,7 +1,6 @@
 .card-flip-container {
-  width: 100%;
-  max-width: 350px;
-  height: 400px;
+  width: 10cm;
+  height: 10cm;
   perspective: 1000px;
   cursor: pointer;
   margin: 0 auto;
@@ -154,8 +153,8 @@
 /* Responsive design */
 @media (max-width: 768px) {
   .card-flip-container {
-    max-width: 320px;
-    height: 350px;
+    width: 4cm;
+    height: 4cm;
   }
   
   .card-flip-front,
