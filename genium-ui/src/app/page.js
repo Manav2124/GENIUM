@@ -425,8 +425,8 @@ export default function Home() {
       return;
     }
 
-    if (!fileProcessed) {
-      setError('Please upload and process a document first');
+    if (!fileProcessed && !globalSearch) {
+      setError('Please upload and process a document first, or enable web search to ask questions without documents');
       setTimeout(() => setError(''), 5000);
       return;
     }
@@ -830,7 +830,7 @@ greet('Genium User');
                                 className="sr-only peer"
                                 checked={isGlobalSearchOn}
                                 onChange={() => setIsGlobalSearchOn(!isGlobalSearchOn)}
-                                disabled={!fileProcessed || isUploading || isAsking}
+                                disabled={isUploading || isAsking}
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                               <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">
@@ -841,8 +841,8 @@ greet('Genium User');
                         </div>
                         <AiInputSearch
                           onSend={(question) => handleAskQuestion(question, isGlobalSearchOn)}
-                          disabled={!fileProcessed || isUploading || isAsking}
-                          placeholder="Ask a question about the document..."
+                          disabled={isUploading || isAsking}
+                          placeholder={isGlobalSearchOn ? "Ask any question..." : "Ask a question about the document..."}
                         />
                         {error && (
                           <div className="p-3 bg-red-900 border border-red-700 rounded text-red-200 mt-4">
@@ -965,7 +965,8 @@ greet('Genium User');
                             </div>
 
                             {/* Document Answer Section */}
-                            {documentAnswer && (
+                            {/* Document Answer Section - Only show if fileProcessed is true AND there's a documentAnswer */}
+                            {fileProcessed && documentAnswer && (
                               <div className="mb-6">
                                 <h3 className="text-md font-semibold text-text-primary mb-3 flex items-center gap-2">
                                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
@@ -980,7 +981,7 @@ greet('Genium User');
                               </div>
                             )}
 
-                            {/* Google/Web Answer Section */}
+                            {/* Google/Web Answer Section - Only show if global search was used */}
                             {lastGlobalSearchUsed && (googleAnswer || isFetchingGoogle) && (
                               <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 <h3 className="text-md font-semibold text-text-primary mb-3 flex items-center gap-2">
@@ -1005,8 +1006,8 @@ greet('Genium User');
                               </div>
                             )}
 
-                            {/* Legacy combined answer display for backward compatibility */}
-                            {!documentAnswer && answer && (
+                            {/* Fallback/General Answer Display - Only show if no specific document or google answer is present, but there's a general answer */}
+                            {!fileProcessed && !lastGlobalSearchUsed && answer && (
                               <div className="mb-4">
                                 <div
                                    className="formatted-answer text-text-primary"

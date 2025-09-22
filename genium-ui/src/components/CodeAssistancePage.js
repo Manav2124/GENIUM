@@ -45,7 +45,7 @@ const CodeAssistancePage = ({ onBack }) => {
     setSelectedFileContent('');
 
     try {
-      const res = await fetch('http://localhost:5000/promptcode/generate-code', { // Use the new API endpoint
+      const res = await fetch('http://localhost:5002/generate-code', { // Use the correct API endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -200,17 +200,19 @@ const CodeAssistancePage = ({ onBack }) => {
 
       {/* Main Content Area */}
       <main className="flex-1 p-4 overflow-auto my-4 ml-8 bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md border border-gray-300 dark:border-gray-700"> {/* Increased left margin (ml-8) */}
-        {isGenerating ? (
-          <div className="flex justify-center items-center h-full">
-            <AITextLoading />
-          </div>
-        ) : (
-          response && (
-            <pre className="bg-gray-200 dark:bg-gray-700 p-4 rounded-md shadow-sm whitespace-pre-wrap">
-              {response}
-            </pre>
-          )
-        )}
+        <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-md shadow-sm min-h-full">
+          {isGenerating ? (
+            <div className="flex justify-center items-center h-64">
+              <AITextLoading />
+            </div>
+          ) : (
+            response && (
+              <pre className="whitespace-pre-wrap">
+                {response}
+              </pre>
+            )
+          )}
+        </div>
       </main>
     </div>
   );

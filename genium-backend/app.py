@@ -2,6 +2,7 @@
 import os
 import tempfile
 import requests
+from datetime import datetime
 # Removed json import
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -11,8 +12,11 @@ import jwt # Import PyJWT
 from functools import wraps # Import wraps for decorator
 from qdrant_client import QdrantClient
 from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings # Added for Gemini embeddings
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.messages import HumanMessage, SystemMessage # Added for Gemini chat messages
+from google.generativeai.types import HarmCategory, HarmBlockThreshold # Correct import for Gemini safety settings
 try:
     from langchain_community.vectorstores import FAISS
 except ImportError:
@@ -22,7 +26,7 @@ except ImportError:
         print("Backend: FAISS not available, will use basic in-memory storage")
         FAISS = None
 from openai import OpenAI
-import google.generativeai as genai # Import Google Generative AI
+from langchain_google_genai import ChatGoogleGenerativeAI # Import for Gemini chat model
 
 # Removed datetime and uuid imports
 
@@ -40,20 +44,44 @@ NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
 if not NEXTAUTH_SECRET:
     raise ValueError("NEXTAUTH_SECRET environment variable not set.")
 
-# Initialize OpenAI client (retained for existing functionality)
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if OPENAI_API_KEY:
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+else:
+    openai_client = None
+    print("WARNING: OPENAI_API_KEY not found. OpenAI API will not be available.")
+
 
 # Initialize Gemini client
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Moved GEMINI_API_KEY definition here
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    gemini_model = genai.GenerativeModel('gemini-pro') # Or 'gemini-1.5-pro'
+    gemini_model = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash", # Changed model name
+        google_api_key=GEMINI_API_KEY,
+        temperature=0.1,
+        safety_settings={
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+    )
+    print("Backend: Gemini Chat Model initialized.")
 else:
     gemini_model = None
-    print("WARNING: GEMINI_API_KEY not found. Gemini API will not be available.")
+    print("WARNING: GEMINI_API_KEY not found. Gemini Chat Model will not be available.")
 
 # Initialize embeddings model
-embedding_model = OpenAIEmbeddings(model="text-embedding-3-large")
+embedding_model = None
+if OPENAI_API_KEY:
+    embedding_model = OpenAIEmbeddings(model="text-embedding-3-large")
+    print("Backend: OpenAI Embeddings initialized.")
+elif GEMINI_API_KEY:
+    embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    print("Backend: Gemini Embeddings initialized.")
+else:
+    print("WARNING: No API key found for OpenAI or Gemini. Embedding model will not be available.")
 def jwt_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -173,7 +201,7 @@ user_uploads = {} # Dictionary to track user uploads
 
 # --- Functions ---
 
-def get_fallback_answer(query, context_available=True):
+def get_fallback_answer(query, context_available=True, global_search_enabled=False):
     """Provide a basic fallback answer when AI service is unavailable"""
     query_lower = query.lower()
 
@@ -187,10 +215,12 @@ def get_fallback_answer(query, context_available=True):
     if any(word in query_lower for word in ['upload', 'file', 'document']):
         return "To get started, please upload a document using the file upload section. I support PDF, DOCX, and TXT files up to 10MB in size."
 
-    if context_available:
+    if global_search_enabled and not context_available:
+        return f"I understand you're asking: '{query}'. I'm currently unable to provide a detailed AI-generated response from web search. Please try again later when the service is back online."
+    elif context_available:
         return f"I understand you're asking about: '{query}'. I've analyzed your document, but I'm currently unable to provide a detailed AI-generated response. Please try again later when the service is back online."
     else:
-        return f"I understand you're asking: '{query}'. Please upload a document first so I can help answer your questions about it."
+        return f"I understand you're asking: '{query}'. Please upload a document first so I can help answer your questions about it, or enable web search to get answers from the internet."
 
 # --- Functions ---
 
@@ -262,6 +292,10 @@ def process_uploaded_file(file_storage):
 def initialize_vector_store(user_id, docs):
     global vector_db
     try:
+        if embedding_model is None:
+            print(f"Backend: Embedding model not available, cannot initialize vector store for user {user_id}")
+            return False
+
         print(f"Backend: Initializing vector store for user {user_id}")
         print(f"Backend: Processing {len(docs)} document chunks")
 
@@ -286,11 +320,19 @@ def initialize_vector_store(user_id, docs):
             # Basic in-memory storage as last resort
             print("Backend: Using basic in-memory storage (limited functionality)")
             # Store documents directly for basic search
-            vector_db[user_id] = {
-                "type": "basic_memory",
-                "documents": docs,
-                "embeddings": [embedding_model.embed_query(doc.page_content) for doc in docs]
-            }
+            if embedding_model:
+                vector_db[user_id] = {
+                    "type": "basic_memory",
+                    "documents": docs,
+                    "embeddings": [embedding_model.embed_query(doc.page_content) for doc in docs]
+                }
+            else:
+                print("Backend: Warning - Embedding model not available for basic in-memory storage.")
+                vector_db[user_id] = {
+                    "type": "basic_memory",
+                    "documents": docs,
+                    "embeddings": [] # Store empty embeddings if model is not available
+                }
 
         print(f"Backend: Successfully initialized vector store for user {user_id}")
         print(f"Backend: Vector database now contains {len(vector_db)} user collections")
@@ -308,38 +350,43 @@ def initialize_vector_store(user_id, docs):
 
 def get_answer(user_id, query, global_search=False):
     global vector_db
-    if user_id not in vector_db or vector_db[user_id] is None:
-        if qdrant_client is None:
-            return "The document storage service is currently unavailable. Please try again later or contact support if the issue persists."
-        else:
-            return "No document has been uploaded yet. Please upload a PDF, DOCX, or TXT file first, then ask your questions."
 
-    search_results = vector_db[user_id].similarity_search(query=query)
-    context = "\n\n".join([
-        f"Page Content: {result.page_content}\nPage Number: {result.metadata.get('page_label', 'N/A')}"
-        for result in search_results
-    ])
-
-    # If global search is enabled, fetch additional information from Google
+    context = ""
     google_context = ""
+    
+    # If global search is enabled, fetch information from Google
     if global_search:
-        google_results = search_google(query)
+        google_results = search_google(query) # Call search_google without trusted_sites parameter
+        
         if google_results:
             google_context = f"\n\nAdditional Information from Web Search:\n{google_results}"
 
+    # Check if document is available
+    has_document = user_id in vector_db and vector_db[user_id] is not None
+
+    if has_document:
+        search_results = vector_db[user_id].similarity_search(query=query)
+        context = "\n\n".join([
+            f"Page Content: {result.page_content}\nPage Number: {result.metadata.get('page_label', 'N/A')}"
+            for result in search_results
+        ])
+
+    # If neither document nor web search is available, return error
+    if not has_document and not global_search:
+        if qdrant_client is None:
+            return "The document storage service is currently unavailable. Please try again later or contact support if the issue persists."
+        else:
+            return "No document has been uploaded yet. Please upload a PDF, DOCX, or TXT file first, or enable web search to ask questions without documents."
+
     system_prompt = f"""
-    You are a helpful AI Assistant who answers user queries based on the available context
-    retrieved from a document. Provide detailed answers and include page references when available.
+    You are an AI assistant answering user queries on any topic. Provide detailed, accurate, and well-explained answers with relevant examples wherever applicable. Gather information from all valid and trustworthy websites and sources on the internet, not limited to any single domain. Always include clickable source URLs in your response so the user can verify the information. Ensure that answers are clear, comprehensive, and educational regardless of the topic the user asks about.
 
     CRITICAL FORMATTING INSTRUCTIONS:
     - Use ONLY standard markdown bold formatting: **text** for emphasis
     - NEVER use HTML tags like <b>, <strong>, or custom tags
     - Apply bold formatting to ALL important terms throughout your entire response
     - Highlight every key concept, definition, important word, and significant term with **bold**
-    - Make your response visually rich by bolding terms like: **Database-Management System (DBMS)**, **primary**, **goal**, **important**, **key**, **essential**,
-      **definition**, **concept**, **theory**, **principle**, **example**, **summary**, **conclusion**, **result**, **finding**, **analysis**,
-      **database**, **system**, **collection**, **program**, **access**, **information**, **enterprise**, **storage**, **mechanism**,
-      **safety**, **crash**, **unauthorized**, **access**, **share**, **user**, **anomalous**, **result**
+    - Make your response visually rich by bolding terms like: **definition**, **concept**, **theory**, **principle**, **example**, **summary**, **conclusion**, **result**, **finding**, **analysis**, **key**, **important**, **essential**, **advantages**, **disadvantages**, **applications**, **implementation**, **features**, **types**, **categories**, **components**, **structure**, **functionality**, **process**, **methodology**, **approach**, **solution**, **problem**, **challenge**, **impact**, **significance**, **role**, **purpose**, **goal**, **objective**, **strategy**, **tactic**, **technique**, **tool**, **technology**, **system**, **framework**, **library**, **module**, **package**, **API**, **interface**, **protocol**, **standard**, **best practice**, **guideline**, **recommendation**, **consideration**, **factor**, **element**, **aspect**, **perspective**, **viewpoint**, **opinion**, **argument**, **evidence**, **data**, **information**, **knowledge**, **understanding**, **insight**, **clarification**, **explanation**, **description**, **illustration**, **demonstration**, **proof**, **justification**, **rationale**, **reason**, **cause**, **effect**, **consequence**, **implication**, **relation**, **relationship**, **connection**, **correlation**, **comparison**, **contrast**, **similarity**, **difference**, **distinction**, **classification**, **categorization**, **grouping**, **organization**, **arrangement**, **sequence**, **order**, **hierarchy**, **level**, **layer**, **tier**, **scope**, **range**, **extent**, **magnitude**, **scale**, **size**, **amount**, **quantity**, **number**, **value**, **rate**, **ratio**, **percentage**, **proportion**, **frequency**, **duration**, **period**, **time**, **date**, **location**, **place**, **environment**, **context**, **scenario**, **situation**, **event**, **occurrence**, **phenomenon**, **trend**, **pattern**, **cycle**, **phase**, **stage**, **step**, **action**, **activity**, **operation**, **task**, **job**, **work**, **project**, **program**, **initiative**, **effort**, **undertaking**, **endeavor**, **venture**, **enterprise**, **business**, **organization**, **company**, **firm**, **corporation**, **institution**, **agency**, **department**, **division**, **team**, **group**, **individual**, **person**, **user**, **customer**, **client**, **stakeholder**, **audience**, **public**, **community**, **society**, **world**, **global**, **national**, **regional**, **local**, **internal**, **external**, **primary**, **secondary**, **tertiary**, **main**, **major**, **minor**, **critical**, **crucial**, **vital**, **essential**, **fundamental**, **basic**, **advanced**, **complex**, **simple**, **easy**, **difficult**, **challenging**, **effective**, **efficient**, **optimal**, **suboptimal**, **successful**, **unsuccessful**, **positive**, **negative**, **neutral**, **good**, **bad**, **better**, **worse**, **high**, **low**, **increased**, **decreased**, **stable**, **volatile**, **dynamic**, **static**, **flexible**, **rigid**, **scalable**, **robust**, **secure**, **reliable**, **available**, **performant**, **responsive**, **interactive**, **user-friendly**, **intuitive**, **accessible**, **customizable**, **configurable**, **extensible**, **maintainable**, **testable**, **deployable**, **portable**, **interoperable**, **compatible**, **integrated**, **distributed**, **centralized**, **decentralized**, **cloud-based**, **on-premise**, **hybrid**, **virtual**, **physical**, **hardware**, **software**, **network**, **data**, **storage**, **compute**, **memory**, **bandwidth**, **latency**, **throughput**, **security**, **privacy**, **compliance**, **governance**, **risk**, **threat**, **vulnerability**, **attack**, **defense**, **mitigation**, **prevention**, **detection**, **response**, **recovery**, **backup**, **restore**, **disaster recovery**, **business continuity**, **scalability**, **performance**, **reliability**, **availability**, **maintainability**, **usability**, **security**, **cost**, **time**, **resources**, **quality**, **scope**, **budget**, **schedule**, **stakeholders**, **requirements**, **design**, **development**, **testing**, **deployment**, **monitoring**, **maintenance**, **support**, **upgrade**, **migration**, **refactoring**, **optimization**, **troubleshooting**, **debugging**, **analysis**, **planning**, **strategy**, **execution**, **management**, **leadership**, **teamwork**, **collaboration**, **communication**, **feedback**, **iteration**, **agile**, **scrum**, **kanban**, **waterfall**, **devops**, **ci/cd**, **automation**, **scripting**, **programming**, **coding**, **development**, **engineering**, **architecture**, **design**, **modeling**, **simulation**, **prototyping**, **testing**, **quality assurance**, **deployment**, **operations**, **support**, **maintenance**, **security**, **data science**, **machine learning**, **artificial intelligence**, **deep learning**, **natural language processing**, **computer vision**, **robotics**, **blockchain**, **internet of things**, **cloud computing**, **big data**, **data warehousing**, **business intelligence**, **analytics**, **visualization**, **reporting**, **dashboard**, **alerting**, **logging**, **monitoring**, **observability**, **telemetry**, **metrics**, **tracing**, **logging**, **event**, **message**, **queue**, **stream**, **pipeline**, **workflow**, **orchestration**, **automation**, **integration**, **api**, **microservices**, **serverless**, **containerization**, **virtualization**, **operating system**, **file system**, **database**, **sql**, **nosql**, **relational**, **document**, **graph**, **key-value**, **columnar**, **time-series**, **search engine**, **cache**, **load balancer**, **proxy**, **gateway**, **firewall**, **vpn**, **dns**, **http**, **tcp/ip**, **rest**, **graphql**, **grpc**, **json**, **xml**, **yaml**, **markdown**, **html**, **css**, **javascript**, **python**, **java**, **c++**, **c#**, **go**, **rust**, **php**, **ruby**, **swift**, **kotlin**, **typescript**, **scala**, **haskell**, **lisp**, **prolog**, **r**, **matlab**, **shell scripting**, **bash**, **powershell**, **git**, **svn**, **mercurial**, **jira**, **confluence**, **slack**, **teams**, **zoom**, **google meet**, **microsoft office**, **google workspace**, **aws**, **azure**, **google cloud**, **docker**, **kubernetes**, **terraform**, **ansible**, **puppet**, **chef**, **jenkins**, **gitlab ci**, **github actions**, **travis ci**, **circleci**, **sonarqube**, **snyk**, **checkmarx**, **veracode**, **owasp**, **gdpr**, **hipaa**, **soc2**, **iso27001**, **nist**, **pci dss**, **ccpa**, **lgpd**, **data privacy**, **data security**, **information security**, **cybersecurity**, **network security**, **application security**, **endpoint security**, **cloud security**, **identity and access management**, **encryption**, **decryption**, **hashing**, **digital signature**, **certificate**, **ssl/tls**, **vpn**, **firewall**, **intrusion detection system**, **intrusion prevention system**, **security information and event management**, **security orchestration automation and response**, **threat intelligence**, **vulnerability management**, **penetration testing**, **red teaming**, **blue teaming**, **security audit**, **compliance audit**, **risk assessment**, **risk management**, **incident response**, **forensics**, **malware analysis**, **reverse engineering**, **social engineering**, **phishing**, **ransomware**, **virus**, **worm**, **trojan**, **spyware**, **adware**, **rootkit**, **botnet**, **ddos**, **man-in-the-middle**, **sql injection**, **cross-site scripting**, **cross-site request forgery**, **broken authentication**, **sensitive data exposure**, **xml external entities**, **broken access control**, **security misconfiguration**, **insecure deserialization**, **insufficient logging and monitoring**, **server-side request forgery**, **unvalidated redirects and forwards**, **insecure direct object references**, **missing function level access control**, **security through obscurity**, **least privilege**, **separation of duties**, **defense in depth**, **zero trust**, **security by design**, **privacy by design**, **data minimization**, **purpose limitation**, **storage limitation**, **accuracy**, **integrity**, **confidentiality**, **availability**, **processing**, **controller**, **processor**, **data subject**, **consent**, **legitimate interest**, **contractual necessity**, **legal obligation**, **public task**, **vital interest**, **special categories of personal data**, **data protection impact assessment**, **data protection officer**, **supervisory authority**, **data breach**, **notification**, **right to access**, **right to rectification**, **right to erasure**, **right to restrict processing**, **right to data portability**, **right to object**, **rights in relation to automated decision making and profiling**.
 
     {google_context}
 
@@ -351,12 +398,12 @@ def get_answer(user_id, query, global_search=False):
 
     if gemini_model:
         gemini_messages = [
-            {'role': 'user', 'parts': [system_prompt]},
-            {'role': 'user', 'parts': [query]}
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=query)
         ]
         try:
-            gemini_response = gemini_model.generate_content(gemini_messages, safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'})
-            answer = gemini_response.candidates[0].content.parts[0].text
+            gemini_response = gemini_model.invoke(gemini_messages)
+            answer = gemini_response.content
         except Exception as e:
             print(f"Gemini API error in get_answer: {e}")
             answer = None # Reset to try OpenAI
@@ -378,7 +425,8 @@ def get_answer(user_id, query, global_search=False):
             answer = None
 
     if answer is None:
-        return get_fallback_answer(query, True)
+        # Pass the actual status of document availability and global search enabled status to the fallback function
+        return get_fallback_answer(query, has_document, global_search)
     # Post-process to remove unwanted highlight tags
     answer = answer.replace('"highlight-keyword">', '').replace('"highlight-phrase">', '')
     return answer
@@ -416,12 +464,16 @@ def get_document_answer(user_id, query):
             embeddings = vector_db[user_id]["embeddings"]
 
             # Calculate similarities (simple cosine similarity)
-            query_embedding = embedding_model.embed_query(query)
-            similarities = []
-            for i, doc_embedding in enumerate(embeddings):
-                # Simple dot product similarity
-                similarity = sum(a * b for a, b in zip(query_embedding, doc_embedding))
-                similarities.append((similarity, documents[i]))
+            if embedding_model:
+                query_embedding = embedding_model.embed_query(query)
+                similarities = []
+                for i, doc_embedding in enumerate(embeddings):
+                    # Simple dot product similarity
+                    similarity = sum(a * b for a, b in zip(query_embedding, doc_embedding))
+                    similarities.append((similarity, documents[i]))
+            else:
+                print("Backend: Warning - Embedding model not available for basic in-memory search.")
+                return "Embedding service is not available, cannot process document questions at this time."
 
             # Sort by similarity and take top 5
             similarities.sort(reverse=True, key=lambda x: x[0])
@@ -475,12 +527,12 @@ def get_document_answer(user_id, query):
 
         if gemini_model:
             gemini_messages = [
-                {'role': 'user', 'parts': [system_prompt]},
-                {'role': 'user', 'parts': [query]}
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=query)
             ]
             try:
-                gemini_response = gemini_model.generate_content(gemini_messages, safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'})
-                answer = gemini_response.candidates[0].content.parts[0].text
+                gemini_response = gemini_model.invoke(gemini_messages)
+                answer = gemini_response.content
             except Exception as e:
                 print(f"Gemini API error in get_document_answer: {e}")
                 answer = None
@@ -505,11 +557,6 @@ def get_document_answer(user_id, query):
             print("Backend: Neither Gemini nor OpenAI could generate a document answer.")
             return get_fallback_answer(query, True)
 
-        if not response.choices or not response.choices[0].message.content:
-            print("Backend: OpenAI returned empty response")
-            return "I couldn't generate a response. The AI service may be temporarily unavailable. Please try again later."
-
-        answer = response.choices[0].message.content
         # Post-process to remove unwanted highlight tags
         answer = answer.replace('"highlight-keyword">', '').replace('"highlight-phrase">', '')
         print(f"Backend: Generated answer (length: {len(answer)} characters)")
@@ -572,12 +619,12 @@ def get_google_answer(query):
 
         if gemini_model:
             gemini_messages = [
-                {'role': 'user', 'parts': [system_prompt]},
-                {'role': 'user', 'parts': [query]}
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=query)
             ]
             try:
-                gemini_response = gemini_model.generate_content(gemini_messages, safety_settings={'HARASSMENT': 'BLOCK_NONE', 'HATE_SPEECH': 'BLOCK_NONE', 'SEXUALLY_EXPLICIT': 'BLOCK_NONE', 'DANGEROUS_CONTENT': 'BLOCK_NONE'})
-                answer = gemini_response.candidates[0].content.parts[0].text
+                gemini_response = gemini_model.invoke(gemini_messages)
+                answer = gemini_response.content
             except Exception as e:
                 print(f"Gemini API error in get_google_answer: {e}")
                 answer = None
@@ -602,10 +649,6 @@ def get_google_answer(query):
             print("Backend: Neither Gemini nor OpenAI could generate a Google answer.")
             return "I couldn't generate a response from the web search results. Please try again later."
 
-        if not response.choices or not response.choices[0].message.content:
-            return "I couldn't generate a response from the web search results. Please try again later."
-
-        answer = response.choices[0].message.content
         # Post-process to remove unwanted highlight tags
         answer = answer.replace('"highlight-keyword">', '').replace('"highlight-phrase">', '')
         return answer
@@ -626,25 +669,16 @@ def get_google_answer(query):
             return f"I couldn't access web search results for your question: '{query}'. The web search service may be temporarily unavailable. You can still get answers from your uploaded document."
 
 def search_google(query):
-    """Search Google using Custom Search API and return formatted results with clickable links, restricted to trusted sites"""
+    """Search Google using Custom Search API and return formatted results with clickable links from various trusted sites"""
     google_api_key = os.getenv("GOOGLE_API_KEY")
     search_engine_id = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
 
     if not google_api_key or not search_engine_id:
         return "Google search is not configured. Please set GOOGLE_API_KEY and GOOGLE_SEARCH_ENGINE_ID in your .env file."
 
-    # Define trusted sites for restricted search
-    trusted_sites = [
-        "site:geeksforgeeks.org",
-        "site:tutorialspoint.com",
-        "site:tpointtech.com"
-    ]
-
     try:
-        # Create search query with site restrictions
-        restricted_query = f"{query} {' OR '.join(trusted_sites)}"
-
-        url = f"https://www.googleapis.com/customsearch/v1?key={google_api_key}&cx={search_engine_id}&q={restricted_query}&num=5"
+        # Perform a broad search without specific site restrictions
+        url = f"https://www.googleapis.com/customsearch/v1?key={google_api_key}&cx={search_engine_id}&q={query}&num=5"
         response = requests.get(url)
         response.raise_for_status()
 
@@ -657,14 +691,10 @@ def search_google(query):
                 link = item.get('link', 'No link')
                 snippet = item.get('snippet', 'No description')
 
-                # Verify the result is from a trusted site
-                is_trusted = any(trusted_domain in link.lower() for trusted_domain in ['geeksforgeeks.org', 'tutorialspoint.com', 'tpointtech.com'])
+                # All results are considered valid as per new requirement, no specific trusted site check needed here
+                results.append(f"[{i}] **[{title}]({link})**\n{snippet}")
 
-                if is_trusted:
-                    # Format as HTML with clickable links
-                    results.append(f"[{i}] **[{title}]({link})**\n{snippet}")
-
-        return "\n\n".join(results) if results else "No relevant results found from trusted educational sites. Please try rephrasing your question."
+        return "\n\n".join(results) if results else "No relevant web results found for your question. Please try rephrasing your question."
     except Exception as e:
         return f"Error performing Google search: {str(e)}"
 
@@ -689,7 +719,7 @@ def health_check():
         "vector_stores": len(vector_db),
         "vector_db_keys": list(vector_db.keys()),
         "user_uploads": user_uploads,
-        "timestamp": "2025-09-08T15:58:41.362Z"
+        "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
     # Check Qdrant connection
@@ -710,7 +740,7 @@ def health_check():
 
     # Check OpenAI connection
     try:
-        if client:
+        if openai_client.api_key:
             # Try a simple API call (this might cost a small amount)
             test_response = openai_client.chat.completions.create(
                 model="gpt-4",
@@ -783,9 +813,6 @@ def upload_file():
     if 'file' not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
 
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
-
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
@@ -822,7 +849,7 @@ def upload_file():
             "file_name": file.filename,
             "file_size": file_size,
             "chunks_count": len(chunks),
-            "timestamp": "2025-09-08T16:11:00.000Z",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
             "vector_store_success": vector_store_success
         })
 
@@ -881,6 +908,7 @@ def ask_question():
     print(f"Backend: /api/ask - Using user_id: {user_id}")
     question = data['question']
     global_search = data.get('globalSearch', False)
+    print(f"Backend: /api/ask - Received globalSearch: {global_search} (type: {type(global_search)})")
     try:
         answer = get_answer(user_id, question, global_search)
 

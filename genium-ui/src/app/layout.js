@@ -1,5 +1,5 @@
 import { Inter } from 'next/font/google';
-import './globals.css'
+import './global.css'
 import SessionProviderWrapper from '../components/SessionProviderWrapper';
 import { UserDataProvider } from '../components/UserDataContext';
 import { getSession } from 'next-auth/react';
