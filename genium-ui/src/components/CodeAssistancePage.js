@@ -1,10 +1,16 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Code, Sparkles, MessageSquare, Lightbulb, CheckCircle, AlertCircle, FileText, Download } from 'lucide-react';
 import AiInputSearch from './ui/ai-input.tsx';
 import { PromptBox } from './ui/chatgpt-prompt-input.tsx';
 import AITextLoading from './ui/ai-text-loading.tsx';
-import FileTree from './FileTree';
+import FileTree from './FileTree'; // Import the FileTree component
+import { ShikiViewer } from './ShikiViewer'; // Import ShikiViewer from its new file
+import { parseCodeGenerationOutput } from '../lib/code-parser'; // Import the new parser
 import { Textarea } from './ui/textarea.tsx';
+import { Toaster } from './ui/sonner.tsx'; // Import Toaster
+import { useTheme } from 'next-themes'; // Import useTheme
 // Note: JSZip would need to be installed: npm install jszip
 // For now, we'll implement a simple download without zipping
 
@@ -52,10 +58,32 @@ const CodeAssistancePage = ({ onBack }) => {
         },
         body: JSON.stringify({ prompt: userPrompt }), // Send prompt
       });
-      const data = await res.json();
-      setResponse(data.code || data.error || 'No response from backend.'); // Display backend response
+      const jsonResponse = await res.json(); // Parse as JSON
+
+      if (jsonResponse.code) {
+        const parsedFiles = parseCodeGenerationOutput(jsonResponse.code);
+        if (parsedFiles.length > 0) {
+          const firstFilePath = parsedFiles[0].path;
+          const pathParts = firstFilePath.split('/');
+          const rootFolder = pathParts.length > 1 ? pathParts[0] : null; // Only set rootFolder if there's a directory structure
+          setProjectData({ files: parsedFiles, rootFolder: rootFolder });
+          setSelectedFile(firstFilePath);
+          setSelectedFileContent(parsedFiles[0].content);
+          setGeneratedCode(parsedFiles[0].content);
+          setResponse(''); // Clear response in main content area if files are found
+        } else {
+          setProjectData(null);
+          setResponse(jsonResponse.code); // Fallback to display raw content if parsing fails
+          setSelectedFile('');
+          setSelectedFileContent('');
+        }
+      } else {
+        setProjectData(null); // Clear project data if no files are found
+        setResponse('No files generated or recognized structure.'); // Display raw content or message if no files
+      }
     } catch (error) {
       setResponse(`Error: ${error.message}`);
+      setProjectData(null);
     } finally {
       setIsGenerating(false);
     }
@@ -81,11 +109,12 @@ const CodeAssistancePage = ({ onBack }) => {
     alert('Code execution feature coming soon! This would run your code in a sandboxed environment.');
   };
 
-  const handleFileSelect = (filePath, fileNode) => {
+  const handleFileSelect = (filePath) => {
     setSelectedFile(filePath);
-    if (fileNode && fileNode.content) {
-      setSelectedFileContent(fileNode.content);
-      setGeneratedCode(fileNode.content);
+    const file = projectData?.files.find(f => f.path === filePath);
+    if (file && file.content) {
+      setSelectedFileContent(file.content);
+      setGeneratedCode(file.content);
     }
   };
 
@@ -164,57 +193,81 @@ const CodeAssistancePage = ({ onBack }) => {
   };
 
   return (
-    <div className="relative flex min-h-screen bg-white dark:bg-black text-black dark:text-white pt-32 px-32"> {/* Increased top padding (pt-32) and horizontal padding (px-32) */}
-      {/* Back to Explore Button */}
-      <button
-        onClick={onBack} // Use the onBack prop for navigation
-        className="absolute top-24 left-16 text-gray-800 hover:text-gray-900 transition-colors duration-200 cursor-pointer flex items-center space-x-1 z-10"
-      >
-        <span className="text-lg">←</span> <span>Back to Explore</span>
-      </button>
+    <React.Fragment>
+      <div className="relative flex min-h-screen bg-white dark:bg-black text-black dark:text-white pt-32 px-32"> {/* Increased top padding (pt-32) and horizontal padding (px-32) */}
+        {/* Back to Explore Button */}
+        <button
+          onClick={onBack} // Use the onBack prop for navigation
+          className="absolute top-24 left-16 text-gray-800 hover:text-gray-900 transition-colors duration-200 cursor-pointer flex items-center space-x-1 z-10"
+        >
+          <span className="text-lg">←</span> <span>Back to Explore</span>
+        </button>
 
-      {/* Left Sidebar */}
-      <aside className="w-96 bg-gray-100 dark:bg-gray-900 shadow-md flex flex-col p-4 rounded-lg my-4 border border-gray-300 dark:border-gray-700"> {/* Added margin, rounded corners, and border */}
-        {/* Theme Toggle */}
+        {/* Left Sidebar */}
+        <aside className="w-96 bg-gray-100 dark:bg-gray-900 shadow-md flex flex-col p-4 rounded-lg my-4 border border-gray-300 dark:border-gray-700"> {/* Added margin, rounded corners, and border */}
+          {/* Theme Toggle */}
 
-        {/* Siri-style animation */}
-        <div className="flex flex-col items-center space-y-4 mb-auto">
-          {/* Siri-style glowing circular animated element */}
-        </div>
+          {/* Siri-style animation */}
+          <div className="flex flex-col items-center space-y-4 mb-auto">
+            {/* Siri-style glowing circular animated element */}
+          </div>
 
-        {/* PromptBox at the bottom */}
-        <div className="mt-auto">
-          <PromptBox
-            value={prompt}
-            isLoading={isGenerating}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleGenerateCode(prompt);
-              }
-            }}
-          />
-        </div>
-      </aside>
+          {/* New container for FileTree */}
+          <div className="flex-1 overflow-auto mb-4">
+            {projectData && projectData.files && (
+              <FileTree
+                files={projectData.files}
+                onFileSelect={handleFileSelect}
+                selectedFile={selectedFile}
+                rootFolder={projectData.rootFolder} // Pass the root folder to FileTree
+              />
+            )}
+          </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 overflow-auto my-4 ml-8 bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md border border-gray-300 dark:border-gray-700"> {/* Increased left margin (ml-8) */}
-        <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-md shadow-sm min-h-full">
-          {isGenerating ? (
-            <div className="flex justify-center items-center h-64">
-              <AITextLoading />
-            </div>
-          ) : (
-            response && (
-              <pre className="whitespace-pre-wrap">
-                {response}
-              </pre>
-            )
-          )}
-        </div>
-      </main>
-    </div>
+          {/* PromptBox at the bottom */}
+          <div className="mt-auto">
+            <PromptBox
+              value={prompt}
+              isLoading={isGenerating}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleGenerateCode(prompt);
+                }
+              }}
+            />
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-4 overflow-auto my-4 ml-8 bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md border border-gray-300 dark:border-gray-700"> {/* Increased left margin (ml-8) */}
+          <div className="bg-gray-200 dark:bg-gray-700 p-4 rounded-md shadow-sm min-h-full">
+            {isGenerating ? (
+              <div className="flex justify-center items-center h-64">
+                <AITextLoading />
+              </div>
+            ) : (
+              <>
+                {response && !projectData?.files?.length && ( // Only show raw response if no project data or no files are parsed
+                  <pre className="whitespace-pre-wrap">
+                    {response}
+                  </pre>
+                )}
+                {selectedFileContent && (
+                  <ShikiViewer
+                    code={selectedFileContent}
+                    lang={selectedFile.split('.').pop()} // Infer language from file extension
+                    showLineNumbers={true}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </main>
+      </div>
+      <Toaster /> {/* Add Toaster component */}
+    </React.Fragment>
   );
 };
 

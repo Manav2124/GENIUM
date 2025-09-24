@@ -1,8 +1,7 @@
-export default function CodeAssistancePage() {
+import CodeAssistancePage from '../../components/CodeAssistancePage';
+
+export default function CodeAssistance() {
   return (
-    <div>
-      <h1>Code Assistance</h1>
-      <p>This is the code assistance page.</p>
-    </div>
+    <CodeAssistancePage />
   );
 }
