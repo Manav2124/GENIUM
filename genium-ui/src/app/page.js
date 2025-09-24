@@ -11,7 +11,6 @@ const Profile = dynamic(() => import('../components/Profile'), { ssr: false });
 const WrapButton = dynamic(() => import('../components/ui/wrap-button'), { ssr: false });
 const PricingSection = dynamic(() => import('../components/ui/pricing.tsx').then(mod => ({ default: mod.PricingSection })), { ssr: false });
 const AiInputSearch = dynamic(() => import('../components/ui/ai-input.tsx'), { ssr: false });
-const Footer = dynamic(() => import('../components/Footer'), { ssr: false });
 const CardFlip = dynamic(() => import('../components/CardFlip'), { ssr: false });
 const CodeModal = dynamic(() => import('../components/CodeModal'), { ssr: false });
 const CodeAssistancePage = dynamic(() => import('../components/CodeAssistancePage'), { ssr: false });
@@ -1062,7 +1061,6 @@ greet('Genium User');
           </div>
 
 
-          {currentPage !== 'plan' && currentPage !== 'try-genium' && currentPage !== 'document-qa' && currentPage !== 'code-assistance' && currentPage !== 'docs' && <Footer setCurrentPage={setCurrentPage} />}
         </>
       )}
     </div>
