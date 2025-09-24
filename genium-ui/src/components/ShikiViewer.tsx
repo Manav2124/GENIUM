@@ -25,7 +25,7 @@ export function ShikiViewer({
       try {
         setIsLoading(true);
         const shikiTheme =
-          resolvedTheme === "dark" ? "github-dark" : "github-light";
+          resolvedTheme === "dark" ? "dark-plus" : "github-light";
         const highlighter = await createHighlighter({
           langs: [
             "tsx",
@@ -40,7 +40,7 @@ export function ShikiViewer({
             "python", // Added python for the example in the image
             "text" // Added text for the example in the image
           ],
-          themes: [shikiTheme],
+          themes: ["dark-plus", "github-light"],
         });
         const highlightedHtml = highlighter.codeToHtml(code, {
           lang: lang === "tsx" ? "typescript" : lang,

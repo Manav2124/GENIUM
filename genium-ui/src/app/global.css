@@ -61,6 +61,11 @@
   }
 }
 
+.dark .shiki-viewer pre,
+.dark .shiki-viewer code {
+  color: hsl(var(--foreground)); /* Ensure text is visible in dark mode */
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-size: inherit;
   font-weight: inherit;

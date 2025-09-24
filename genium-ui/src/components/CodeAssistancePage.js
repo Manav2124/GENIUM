@@ -194,7 +194,7 @@ const CodeAssistancePage = ({ onBack }) => {
 
   return (
     <React.Fragment>
-      <div className="relative flex min-h-screen bg-white dark:bg-black text-black dark:text-white pt-32 px-32"> {/* Increased top padding (pt-32) and horizontal padding (px-32) */}
+      <div className="relative flex min-h-screen bg-white dark:bg-black text-black dark:text-white pt-48 px-32"> {/* Increased top padding (pt-48) and horizontal padding (px-32) */}
         {/* Back to Explore Button */}
         <button
           onClick={onBack} // Use the onBack prop for navigation
