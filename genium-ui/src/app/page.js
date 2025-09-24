@@ -29,6 +29,7 @@ const DialogTitle = dynamic(() => import('../components/ui/dialog').then(mod => 
 import { FileUp, Landmark, ShieldCheck, Zap, Menu, CircleCheckIcon, X, Globe, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { uploadFileToBackend, askDocumentQuestion, askQuestionWithGlobalSearch } from '../utils/api'; // Import the API functions
+import './FeatureBoxes.css'; // Import the new CSS file
 
 // Utility function to parse markdown links and bold formatting
 function parseMarkdownLinks(text) {
@@ -323,13 +324,13 @@ const PLANS = [
 ];
 
 // Helper component for Icons
-const FeatureIcon = ({ icon: Icon, title, description }) => (
-  <div className="flex flex-col items-center text-center p-4">
-    <div className="bg-background rounded-full p-3 mb-4">
-      <Icon className="w-6 h-6 text-google-blue" />
+const FeatureBox = ({ icon: Icon, title, description }) => (
+  <div className="feature-box">
+    <div className="icon">
+      <Icon />
     </div>
-    <h3 className="font-medium text-lg mb-1 font-roboto">{title}</h3>
-    <p className="text-text-secondary text-sm">{description}</p>
+    <h3>{title}</h3>
+    <p>{description}</p>
   </div>
 );
 
@@ -571,8 +572,13 @@ export default function Home() {
           <div className={cn('mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12', isScrolled && 'bg-background/50 max-w-4xl rounded-2xl border backdrop-blur-lg lg:px-5')}>
             <div className="relative flex items-center gap-6 py-3 lg:py-4">
               <a
-                href="/"
+                href="#"
                 aria-label="home"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCurrentPage('overview');
+                  router.push('/');
+                }}
                 className="flex items-center space-x-2">
                 <h1 className="text-xl font-medium text-foreground font-melodrama-bold genium-logo-width">GENIUM</h1>
               </a>
@@ -688,11 +694,11 @@ export default function Home() {
                   </section>
 
                   <section className="py-12 bg-surface dark:bg-surface-dark">
-                    <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 px-6">
-                      <FeatureIcon icon={FileUp} title="Upload" description="Easily upload your files and documents for instant analysis." />
-                      <FeatureIcon icon={Landmark} title="Knowledge" description="Tap into a vast knowledge base for accurate answers." />
-                      <FeatureIcon icon={ShieldCheck} title="Privacy" description="Your data is secure and private, always." />
-                      <FeatureIcon icon={Zap} title="Fast" description="Get instant responses powered by advanced AI." />
+                    <div className="features-container">
+                      <FeatureBox icon={FileUp} title="Upload" description="Easily upload your files and documents for instant analysis." />
+                      <FeatureBox icon={Landmark} title="Knowledge" description="Tap into a vast knowledge base for accurate answers." />
+                      <FeatureBox icon={ShieldCheck} title="Privacy" description="Your data is secure and private, always." />
+                      <FeatureBox icon={Zap} title="Fast" description="Get instant responses powered by advanced AI." />
                     </div>
                   </section>
                   <PrivacySection />

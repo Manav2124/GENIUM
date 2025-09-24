@@ -1,0 +1,92 @@
+/* FeatureBoxes.css */
+.features-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 50px 20px;
+  flex-wrap: wrap;
+}
+
+.feature-box {
+  background-color: #fff; /* White background for boxes in light theme */
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  width: 220px; /* Adjust width as needed */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.feature-box:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.feature-box:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.feature-box:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.feature-box:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feature-box:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.feature-box .icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  color: #333; /* Black icon in light theme */
+}
+
+.feature-box h3 {
+  font-size: 20px;
+  margin-bottom: 10px;
+  color: #333; /* Black text in light theme */
+}
+
+.feature-box p {
+  font-size: 14px;
+  color: #666; /* Dark grey text in light theme */
+  line-height: 1.5;
+}
+
+/* Dark theme adjustments */
+.dark .feature-box {
+  background-color: #000; /* Black background for boxes in dark theme */
+  border: 1px solid #333; /* Darker border */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark .feature-box:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+.dark .feature-box .icon {
+  color: #f0f0f0; /* Light icon in dark theme */
+}
+
+.dark .feature-box h3 {
+  color: #f0f0f0; /* Light text in dark theme */
+}
+
+.dark .feature-box p {
+  color: #b0b0b0; /* Lighter grey text in dark theme */
+}
