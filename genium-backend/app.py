@@ -17,6 +17,8 @@ from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2t
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.messages import HumanMessage, SystemMessage # Added for Gemini chat messages
 from google.generativeai.types import HarmCategory, HarmBlockThreshold # Correct import for Gemini safety settings
+from pymongo import MongoClient # Import MongoClient
+from models import User, UserRepository # Import User and UserRepository
 try:
     from langchain_community.vectorstores import FAISS
 except ImportError:
@@ -31,7 +33,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI # Import for Gemini ch
 # Removed datetime and uuid imports
 
 # Load environment variables
-load_dotenv(dotenv_path='../.env') # Explicitly load .env from parent directory
+load_dotenv(dotenv_path='../.env') # Load .env from root directory
 
 # Removed user data directory setup
 
@@ -126,7 +128,8 @@ def jwt_required(f):
             # Decode and validate JWT
             try:
                 print(f"Backend: Attempting to decode JWT token...")
-                payload = jwt.decode(token, NEXTAUTH_SECRET, algorithms=["HS256"])
+                # Allow both HS256 (for custom generated tokens) and RS256 (for NextAuth's default)
+                payload = jwt.decode(token, NEXTAUTH_SECRET, algorithms=["HS256"]) # Revert to HS256 only
                 print(f"Backend: Successfully decoded JWT")
                 print(f"Backend: Decoded payload keys: {list(payload.keys())}")
                 print(f"Backend: Full decoded payload: {payload}")
@@ -135,6 +138,24 @@ def jwt_required(f):
                 if not user_id:
                     print("Backend: Token missing 'sub' or 'userId' claim")
                     return jsonify({"error": "Invalid token: missing user ID"}), 401
+
+                # Store or retrieve user data from MongoDB
+                if user_repository:
+                    profile_data = {
+                        "email": payload.get("email"),
+                        "name": payload.get("name"),
+                        "image": payload.get("picture"), # Assuming 'picture' for profile image
+                        "provider_id": user_id # Using 'sub' or 'userId' as provider_id
+                    }
+                    print(f"Backend: Profile data extracted from JWT: {profile_data}")
+                    try:
+                        user_obj = user_repository.find_or_create_oauth_user(profile_data)
+                        print(f"Backend: OAuth user handled: {user_obj.email}")
+                    except Exception as e:
+                        print(f"Backend: Error handling OAuth user in MongoDB: {str(e)}")
+                        import traceback
+                        print(f"Backend: Full traceback for OAuth user error: {traceback.format_exc()}")
+                        # Continue without user data if there's a DB error, but log it
 
                 # Optional: Check token expiration manually (though jwt.decode already does this)
                 if 'exp' in payload:
@@ -179,6 +200,12 @@ def jwt_required(f):
 
     return decorated_function
 
+@app.errorhandler(401)
+def unauthorized(error):
+    """Custom 401 error handler to return JSON response."""
+    print(f"Backend: Custom 401 error handler triggered: {error}")
+    return jsonify({"error": "Unauthorized: " + str(error.description)}), 401
+
 # Initialize Qdrant client (persistent storage)
 try:
     qdrant_client = QdrantClient(host="localhost", port=6333)
@@ -193,8 +220,35 @@ except Exception as e:
     qdrant_client = None
     qdrant_available = False
 
+# Initialize MongoDB client
+mongo_client = None
+mongo_db = None
+try:
+    # Prioritize MONGO_URI for Docker Compose, then DB_CONNECTION_STRING
+    mongo_connection_string = os.getenv("MONGO_URI") or os.getenv("DB_CONNECTION_STRING")
+    if mongo_connection_string:
+        mongo_client = MongoClient(mongo_connection_string)
+        mongo_db = mongo_client.Genium # Corrected to 'Genium' to match appName in connection string
+        # The ismaster command is cheap and does not require auth.
+        mongo_client.admin.command('ismaster')
+        print("Backend: MongoDB client initialized and connected successfully")
+    else:
+        print("WARNING: MONGO_URI or DB_CONNECTION_STRING not found. MongoDB will not be available.")
+except Exception as e:
+    print(f"Backend: Failed to initialize MongoDB client: {str(e)}")
+    mongo_client = None
+    mongo_db = None
+
 # In-memory storage for vector database (will be replaced by user-specific Qdrant collections)
 vector_db = {} # Dictionary to hold user-specific vector dbs
+
+# Initialize UserRepository
+user_repository = None
+if mongo_db is not None:
+    user_repository = UserRepository(mongo_db)
+    print("Backend: UserRepository initialized.")
+else:
+    print("WARNING: MongoDB not available, UserRepository will not be initialized.")
 
 # Track uploaded files per user for debugging
 user_uploads = {} # Dictionary to track user uploads
@@ -714,7 +768,8 @@ def health_check():
         "services": {
             "flask": "running",
             "qdrant": "unknown",
-            "openai": "unknown"
+            "openai": "unknown",
+            "mongodb": "unknown" # Added MongoDB status
         },
         "vector_stores": len(vector_db),
         "vector_db_keys": list(vector_db.keys()),
@@ -783,6 +838,18 @@ def health_check():
         else:
             health_status["services"]["gemini"] = f"error: {str(e)}"
         print(f"Health check - Gemini error: {str(e)}")
+
+    # Check MongoDB connection
+    try:
+        if mongo_client is not None and mongo_db is not None:
+            # Try a simple operation to test connection, e.g., list collection names
+            mongo_db.list_collection_names()
+            health_status["services"]["mongodb"] = "connected"
+        else:
+            health_status["services"]["mongodb"] = "not_configured"
+    except Exception as e:
+        health_status["services"]["mongodb"] = f"error: {str(e)}"
+        print(f"Health check - MongoDB error: {str(e)}")
 
     # Determine overall status
     if any(status in ["error", "auth_error", "not_configured"] for status in health_status["services"].values()):
@@ -1019,6 +1086,40 @@ def debug_vector_db(user_id):
     return jsonify(debug_info), 200
 
 
+
+@app.route('/api/user/sync', methods=['POST'])
+@jwt_required
+def sync_user_data(user_id):
+    """
+    Receives user profile data from the frontend after NextAuth authentication
+    and ensures it's stored/updated in MongoDB.
+    """
+    if user_repository is None:
+        print("Backend: UserRepository not initialized, cannot sync user data.")
+        return jsonify({"error": "User service unavailable"}), 500
+
+    data = request.get_json()
+    if not data:
+        print("Backend: /api/user/sync - No data provided in request.")
+        return jsonify({"error": "No user data provided"}), 400
+
+    profile_data = {
+        "email": data.get("email"),
+        "name": data.get("name"),
+        "image": data.get("image"),
+        "provider_id": user_id
+    }
+    print(f"Backend: /api/user/sync - Received profile data: {profile_data}")
+
+    try:
+        user_obj = user_repository.find_or_create_oauth_user(profile_data)
+        print(f"Backend: /api/user/sync - User data synced for: {user_obj.email}")
+        return jsonify({"message": "User data synced successfully", "user_id": str(user_obj._id)}), 200
+    except Exception as e:
+        print(f"Backend: /api/user/sync - Error syncing user data: {str(e)}")
+        import traceback
+        print(f"Backend: Full traceback for /api/user/sync error: {traceback.format_exc()}")
+        return jsonify({"error": "Failed to sync user data"}), 500
 
 @app.route('/api/generate-code', methods=['POST'])
 def generate_code():
@@ -1577,4 +1678,5 @@ def get_file_extension(language):
     return extensions.get(language, 'txt')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5002, debug=True)
+

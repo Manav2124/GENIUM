@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth';
 import GithubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
+import jwt from 'jsonwebtoken'; // Import jsonwebtoken
 
 export const authOptions = {
   providers: [
@@ -65,6 +66,54 @@ export const authOptions = {
           console.log("Google sign-in failed: Email not verified");
           return '/auth/error?error=EmailNotVerified'; // Redirect to error page with specific error
         }
+
+        // Send user data to the backend for storage in MongoDB
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5002';
+        const nextAuthSecret = process.env.NEXTAUTH_SECRET; // Declare once here
+        if (!nextAuthSecret) {
+          console.error("NEXTAUTH_SECRET is not defined in the environment variables.");
+          return '/auth/error?error=NextAuthSecretMissing';
+        }
+
+        let tokenToSend = null;
+        try {
+          tokenToSend = jwt.sign(
+            { sub: String(user.id), email: user.email, name: user.name, picture: user.image },
+            nextAuthSecret,
+            { algorithm: 'HS256', expiresIn: '1h' } // Explicitly set algorithm to HS256
+          );
+          console.log(`Generated custom HS256 JWT for backend authentication for user ${user.email}.`);
+        } catch (jwtError) {
+          console.error('Error generating custom JWT:', jwtError);
+          return '/auth/error?error=JwtGenerationFailed';
+        }
+
+        try {
+          const response = await fetch(`${backendUrl}/api/user/sync`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokenToSend}`
+            },
+            body: JSON.stringify({
+              email: user.email,
+              name: user.name,
+              image: user.image,
+              provider_id: user.id,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Backend user sync failed:', errorData.error);
+            return '/auth/error?error=BackendSyncFailed';
+          }
+          console.log('Backend user data synced successfully.');
+        } catch (backendError) {
+          console.error('Error calling backend user sync API:', backendError);
+          return '/auth/error?error=BackendConnectionError';
+        }
+
         return true;
       } catch (error) {
         console.error('Sign in error:', error);

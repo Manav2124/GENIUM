@@ -4,7 +4,7 @@ import Image from "next/image";
 import { getSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUserData } from "../../src/components/UserDataContext";
+import { useUserData } from "@/components/UserDataContext";
 import { useSession } from "next-auth/react";
 
 export default function Dashboard() {
