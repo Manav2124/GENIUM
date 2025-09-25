@@ -1,6 +1,6 @@
 // API utility functions for Genium UI
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5002/api';
 
 /**
  * Upload a file to the backend

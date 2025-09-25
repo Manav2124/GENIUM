@@ -5,18 +5,10 @@ import requests
 import os
 import subprocess
 import logging # Import logging module
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import google.generativeai as genai # Import Google Generative AI
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-app = Flask(__name__)
-CORS(app) # Enable CORS for all routes
-
-from dotenv import load_dotenv
-load_dotenv(dotenv_path='../.env')
 
 # Initialize OpenAI client
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -62,18 +54,8 @@ When the user requests a project or any code:
 Follow these rules for every “create/build/generate” request.
 """
 
-@app.route('/', methods=['GET'])
-def index():
-    return jsonify({"message": "Backend server is running"}), 200
-
-@app.route('/generate-code', methods=['POST'])
-def generate_code():
-    data = request.get_json()
-    logging.debug(f"/generate-code endpoint called with data: {data}")
-    user_query = data.get('prompt')
-
-    if not user_query:
-        return jsonify({"error": "Prompt is required"}), 400
+def generate_code_content(user_query):
+    logging.debug(f"generate_code_content function called with query: {user_query}")
 
     messages = [
         { "role": "system", "content": SYSTEM_PROMPT },
@@ -84,13 +66,9 @@ def generate_code():
     
     if gemini_model:
         try:
-            # For Gemini, the system prompt is typically handled as the first user message
-            # or as a dedicated system instruction if the API supports it.
-            # Given the new SYSTEM_PROMPT, we can directly use it in the first user message.
             gemini_messages = []
             for msg in messages:
                 if msg["role"] == "system":
-                    # Prepend system instruction to the first user message
                     if gemini_messages and gemini_messages[0]['role'] == 'user':
                         gemini_messages[0]['parts'][0] = msg["content"] + "\n" + gemini_messages[0]['parts'][0]
                     else:
@@ -109,11 +87,11 @@ def generate_code():
             logging.error(f"An unexpected error occurred with Gemini API: {e}", exc_info=True)
             response_content = json.dumps({"error": f"An unexpected Gemini API error occurred."})
     
-    if response_content is None and openai_client: # Only try OpenAI if Gemini failed or not available
+    if response_content is None and openai_client:
         try:
             openai_response = openai_client.chat.completions.create(
                 model="gpt-4",
-                messages=messages # No response_format for plain text code
+                messages=messages
             )
             response_content = openai_response.choices[0].message.content
         except OpenAI.APIError as e:
@@ -124,17 +102,13 @@ def generate_code():
             response_content = json.dumps({"error": f"An unexpected OpenAI API error occurred."})
 
     if response_content is None:
-        return jsonify({"error": "Neither Gemini nor OpenAI API could generate a response. Please check API keys and service status."}), 500
+        return json.dumps({"error": "Neither Gemini nor OpenAI API could generate a response. Please check API keys and service status."})
     
-    # If the response_content is a JSON string due to an API error, return it as such
     try:
         error_data = json.loads(response_content)
         if "error" in error_data:
-            return jsonify(error_data), 500
+            return json.dumps(error_data)
     except json.JSONDecodeError:
-        pass # Not an error JSON, proceed to return as code
+        pass
 
-    return jsonify({"code": response_content})
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5002)
+    return response_content
