@@ -202,3 +202,13 @@ This project is licensed under the MIT License.
 ---
 
 **Note**: This is a demo implementation. For production use, consider adding authentication, rate limiting, and additional security measures.
+
+## UI
+
+The UI is built with React and Tailwind CSS, providing a modern and responsive user experience. It includes features such as:
+
+- Dark/Light theme support
+- Real-time chat interface
+- File upload and display
+- Code assistance
+- User authentication
