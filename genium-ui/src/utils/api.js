@@ -35,11 +35,17 @@ export async function uploadFileToBackend(file, userId, token) {
       hasToken: !!token
     });
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
     const response = await fetch(`${API_BASE_URL}/upload`, {
       method: 'POST',
       headers: headers,
       body: formData,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));

@@ -464,14 +464,21 @@ const handleError = useCallback(
                     hasAccessToken: !!accessToken
                 });
 
-                await uploadFunction(uploadingFile, currentUserId, accessToken); // Pass userId and accessToken
+                const response = await uploadFunction(uploadingFile, currentUserId, accessToken); // Pass userId and accessToken
 
                 if (progressInterval) { // Clear interval only if it was set
                     clearInterval(progressInterval);
                 }
-                setProgress(100);
-                setStatus("success");
-                onUploadSuccess?.(uploadingFile);
+
+                // Check the vector_store_created flag from the backend response
+                if (response && response.vector_store_created === false) {
+                    const errorMessage = response.error || "File uploaded, but failed to process for Q&A. Please try again.";
+                    handleError({ message: errorMessage, code: "VECTOR_STORE_FAILED" });
+                } else {
+                    setProgress(100);
+                    setStatus("success");
+                    onUploadSuccess?.(uploadingFile);
+                }
             } catch (error) {
                 console.log('=== FILEUPLOAD ERROR DEBUG ===');
                 console.log('Error type:', error.constructor.name);

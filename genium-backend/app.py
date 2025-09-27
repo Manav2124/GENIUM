@@ -207,18 +207,28 @@ def unauthorized(error):
     return jsonify({"error": "Unauthorized: " + str(error.description)}), 401
 
 # Initialize Qdrant client (persistent storage)
-try:
-    qdrant_client = QdrantClient(host="localhost", port=6333)
-    print("Backend: Qdrant client initialized successfully")
-    # Test the connection
-    collections = qdrant_client.get_collections()
-    print(f"Backend: Qdrant connection test successful, found {len(collections.collections)} existing collections")
-    qdrant_available = True
-except Exception as e:
-    print(f"Backend: Failed to initialize Qdrant client: {str(e)}")
-    print("Backend: Qdrant not available, will use in-memory fallback storage")
-    qdrant_client = None
-    qdrant_available = False
+qdrant_url = os.getenv("QDRANT_URL")
+qdrant_client = None
+qdrant_available = False
+
+if qdrant_url:
+    try:
+        # Extract host and port from QDRANT_URL
+        # Assuming QDRANT_URL is in the format http://host:port
+        qdrant_host = qdrant_url.split("://")[1].split(":")[0]
+        qdrant_port = int(qdrant_url.split(":")[-1])
+        
+        qdrant_client = QdrantClient(host=qdrant_host, port=qdrant_port)
+        print("Backend: Qdrant client initialized successfully using QDRANT_URL")
+        # Test the connection
+        collections = qdrant_client.get_collections()
+        print(f"Backend: Qdrant connection test successful, found {len(collections.collections)} existing collections")
+        qdrant_available = True
+    except Exception as e:
+        print(f"Backend: Failed to initialize Qdrant client using QDRANT_URL: {str(e)}")
+        print("Backend: Qdrant not available, will use in-memory fallback storage")
+else:
+    print("Backend: QDRANT_URL environment variable not set. Qdrant will not be available.")
 
 # Initialize MongoDB client
 mongo_client = None
@@ -859,6 +869,7 @@ def health_check():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
+    print("Backend: Upload request received")
     # Check if user is authenticated, otherwise use anonymous user
     auth_header = request.headers.get('Authorization')
     user_id = None
@@ -921,16 +932,19 @@ def upload_file():
         })
 
         # Verify vector store was created
-        if vector_store_success and user_id in vector_db and vector_db[user_id] is not None:
-            print(f"Backend: Vector store successfully created for user {user_id}")
-            print(f"Backend: Current vector_db keys: {list(vector_db.keys())}")
-            print(f"Backend: User uploads tracking: {user_uploads}")
-        else:
-            print(f"Backend: Warning - Vector store may not have been created properly for user {user_id}")
-            if qdrant_client is None:
-                print("Backend: Qdrant service is not available")
+        if not vector_store_success or user_id not in vector_db or vector_db[user_id] is None:
+            error_message = "Failed to create vector store for the uploaded document."
+            if not qdrant_available:
+                error_message += " Qdrant service is not available."
+            elif embedding_model is None:
+                error_message += " Embedding model is not initialized. Please check API keys."
+            
+            print(f"Backend: Error - {error_message} for user {user_id}")
+            return jsonify({"error": error_message, "vector_store_created": False}), 500
 
-        # Removed file metadata saving for anonymous uploads
+        print(f"Backend: Vector store successfully created for user {user_id}")
+        print(f"Backend: Current vector_db keys: {list(vector_db.keys())}")
+        print(f"Backend: User uploads tracking: {user_uploads}")
 
         response_data = {
             "message": "File uploaded and processed successfully",
@@ -938,7 +952,7 @@ def upload_file():
             "user_id": user_id,
             "file_name": file.filename,
             "file_size": file_size,
-            "vector_store_created": vector_store_success
+            "vector_store_created": True
         }
 
         print(f"Backend: Upload completed successfully: {response_data}")
@@ -1153,4 +1167,4 @@ def generate_code():
         return jsonify({"error": "An unexpected error occurred during code generation."}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5002, debug=True)
+    app.run(host='0.0.0.0', port=5002, debug=False)
