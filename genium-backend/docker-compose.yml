@@ -4,14 +4,10 @@ services:
     build: .
     ports:
       - "5000:5000" # merged_app.py runs on port 5000 inside container, exposed on 5000
+    env_file:
+      - ../.env # Reference the .env file in the root directory
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - GEMINI_API_KEY=${GEMINI_API_KEY} # Used for Gemini
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY} # Used for Google Search
-      - GOOGLE_SEARCH_ENGINE_ID=${GOOGLE_SEARCH_ENGINE_ID}
       - QDRANT_URL=http://vector-db:6333 # Connect to Qdrant service
-      - DB_CONNECTION_STRING=${DB_CONNECTION_STRING} # Pass MongoDB connection string
       - MONGO_URI=mongodb://mongodb:27017/genium # Internal Docker network connection for MongoDB
     depends_on:
       - vector-db

@@ -24,4 +24,4 @@ EXPOSE 5000
 # Health check (optional for Flask, but good practice)
 # HEALTHCHECK CMD curl --fail http://localhost:5000/health
 
-CMD ["python", "main_app.py"]
+CMD ["python", "app.py"]
