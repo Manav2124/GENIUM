@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Code, Sparkles, MessageSquare, Lightbulb, CheckCircle, AlertCircle, FileText, Download } from 'lucide-react';
 import AiInputSearch from './ui/ai-input.tsx';
 import { PromptBox } from './ui/chatgpt-prompt-input.tsx';
@@ -24,6 +24,20 @@ const CodeAssistancePage = ({ onBack }) => {
   const [projectData, setProjectData] = useState(null);
   const [selectedFile, setSelectedFile] = useState('');
   const [selectedFileContent, setSelectedFileContent] = useState('');
+  const [showVideoAnimation, setShowVideoAnimation] = useState(false);
+
+  useEffect(() => {
+    const shouldShow = prompt.trim().length > 0 &&
+                       response === '' &&
+                       isGenerating &&
+                       (!projectData || projectData.files.length === 0);
+    console.log('Debug: prompt', prompt);
+    console.log('Debug: response', response);
+    console.log('Debug: isGenerating', isGenerating);
+    console.log('Debug: projectData', projectData);
+    console.log('Debug: shouldShowVideoAnimation', shouldShow);
+    setShowVideoAnimation(shouldShow);
+  }, [prompt, response, isGenerating, projectData]);
 
   const programmingLanguages = [
     { value: 'javascript', label: 'JavaScript', icon: '🟨' },
@@ -198,7 +212,7 @@ const CodeAssistancePage = ({ onBack }) => {
         {/* Back to Explore Button */}
         <button
           onClick={onBack} // Use the onBack prop for navigation
-          className="absolute top-24 left-16 text-gray-800 hover:text-gray-900 transition-colors duration-200 cursor-pointer flex items-center space-x-1 z-10"
+          className="absolute top-40 left-16 text-gray-800 hover:text-gray-900 transition-colors duration-200 cursor-pointer flex items-center space-x-1 z-10"
         >
           <span className="text-lg">←</span> <span>Back to Explore</span>
         </button>
@@ -210,6 +224,15 @@ const CodeAssistancePage = ({ onBack }) => {
           {/* Siri-style animation */}
           <div className="flex flex-col items-center space-y-4 mb-auto">
             {/* Siri-style glowing circular animated element */}
+            {showVideoAnimation && (
+              <video
+                src="/videos/v3.mp4"
+                loop
+                muted
+                autoPlay
+                className="w-64 h-64 object-cover rounded-full"
+              />
+            )}
           </div>
 
           {/* New container for FileTree */}
@@ -230,11 +253,9 @@ const CodeAssistancePage = ({ onBack }) => {
               value={prompt}
               isLoading={isGenerating}
               onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleGenerateCode(prompt);
-                }
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleGenerateCode(prompt);
               }}
             />
           </div>

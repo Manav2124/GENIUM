@@ -36,6 +36,11 @@
   border-bottom-left-radius: 2px;
 }
 
+.message.ai pre,
+.message.ai code {
+  color: white;
+}
+
 .siri-wave-container {
   display: flex;
   justify-content: center;

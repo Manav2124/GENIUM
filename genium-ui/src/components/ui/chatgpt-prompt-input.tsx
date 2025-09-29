@@ -4,6 +4,62 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
+declare global {
+  interface Window {
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+
+  interface SpeechRecognitionEvent extends Event {
+    readonly results: SpeechRecognitionResultList;
+    readonly resultIndex: number;
+    readonly error: SpeechRecognitionError; // Add error property
+  }
+
+  interface SpeechRecognitionError {
+    readonly error: string;
+    readonly message: string;
+  }
+
+  interface SpeechRecognitionResultList {
+    [index: number]: SpeechRecognitionResult;
+    readonly length: number;
+    item(index: number): SpeechRecognitionResult;
+  }
+
+  interface SpeechRecognitionResult {
+    [index: number]: SpeechRecognitionAlternative;
+    readonly length: number;
+    readonly isFinal: boolean;
+    item(index: number): SpeechRecognitionAlternative;
+  }
+
+  interface SpeechRecognitionAlternative {
+    readonly transcript: string;
+    readonly confidence: number;
+  }
+
+  interface SpeechRecognition extends EventTarget {
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+
+    start(): void;
+    stop(): void;
+    abort(): void;
+
+    onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
+    onerror: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null; // Change Event to SpeechRecognitionEvent
+    onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+    onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
+  }
+
+  interface SpeechRecognitionStatic {
+    new (): SpeechRecognition;
+  }
+
+  var SpeechRecognition: SpeechRecognitionStatic;
+}
+
 // --- Utility Function & Radix Primitives (Unchanged) ---
 type ClassValue = string | number | boolean | null | undefined;
 function cn(...inputs: ClassValue[]): string {
@@ -288,53 +344,48 @@ const MicIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const toolsList = [
-  {
-    id: "createImage",
-    name: "Create an image",
-    shortName: "Image",
-    icon: PaintBrushIcon,
-  },
-  {
-    id: "searchWeb",
-    name: "Search the web",
-    shortName: "Search",
-    icon: GlobeIcon,
-  },
-  {
-    id: "writeCode",
-    name: "Write or code",
-    shortName: "Write",
-    icon: PencilIcon,
-  },
-  {
-    id: "deepResearch",
-    name: "Run deep research",
-    shortName: "Deep Search",
-    icon: TelescopeIcon,
-    extra: "5 left",
-  },
-  {
-    id: "thinkLonger",
-    name: "Think for longer",
-    shortName: "Think",
-    icon: LightbulbIcon,
-  },
-];
+// NEW: StopCircleIcon
+const StopCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <rect x="9" y="9" width="6" height="6" />
+  </svg>
+);
 
 // --- The Final, Self-Contained PromptBox Component ---
 export const PromptBox = React.forwardRef<
   HTMLTextAreaElement,
-  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { isLoading?: boolean }
->(({ className, isLoading, ...props }, ref) => {
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+    isLoading?: boolean;
+    onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; // Add onSubmit prop
+  }
+>(({ className, isLoading, onSubmit, ...props }, ref) => {
   // ... all state and handlers are unchanged ...
   const internalTextareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [value, setValue] = React.useState("");
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
-  const [selectedTool, setSelectedTool] = React.useState<string | null>(null);
-  const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
   const [isImageDialogOpen, setIsImageDialogOpen] = React.useState(false);
+
+  // NEW: State for voice recording
+  const [isRecording, setIsRecording] = React.useState(false);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+
+  // NEW: State for speech recognition
+  const [isListening, setIsListening] = React.useState(false);
+  const speechRecognitionRef = React.useRef<SpeechRecognition | null>(null);
+
   React.useImperativeHandle(ref, () => internalTextareaRef.current!, []);
   React.useLayoutEffect(() => {
     const textarea = internalTextareaRef.current;
@@ -369,14 +420,112 @@ export const PromptBox = React.forwardRef<
       fileInputRef.current.value = "";
     }
   };
+
+  // NEW: Voice recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // For now, just log the audio blob. In a real app, you'd upload this.
+        console.log('Recorded audio blob:', audioBlob);
+        // You could also create a URL for playback:
+        // const audioUrl = URL.createObjectURL(audioBlob);
+        // console.log('Audio URL:', audioUrl);
+        // Optionally, send the audio to the backend here
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Could not access microphone. Please ensure it is connected and permissions are granted.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop()); // Stop microphone access
+      setIsRecording(false);
+    }
+  };
+
+  // NEW: Speech recognition functions
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      speechRecognitionRef.current = new SpeechRecognition();
+      speechRecognitionRef.current.continuous = true;
+      speechRecognitionRef.current.interimResults = true;
+      speechRecognitionRef.current.lang = 'en-US';
+
+      speechRecognitionRef.current.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+        setValue((prevValue) => prevValue + finalTranscript); // Append final transcript
+        // You might want to display interimTranscript in a separate area or update the input box dynamically
+        // For now, we'll just append the final transcript when a pause is detected.
+      };
+
+      speechRecognitionRef.current.onerror = (event: SpeechRecognitionEvent) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      speechRecognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    } else {
+      console.warn('Speech Recognition API not supported in this browser.');
+    }
+  }, []);
+
+  const startSpeechRecognition = () => {
+    if (speechRecognitionRef.current) {
+      speechRecognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const stopSpeechRecognition = () => {
+    if (speechRecognitionRef.current) {
+      speechRecognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
+  const handleVoiceButtonClick = () => {
+    if (isRecording) {
+      stopRecording();
+      stopSpeechRecognition(); // Stop speech recognition when recording stops
+    } else {
+      startRecording();
+      startSpeechRecognition(); // Start speech recognition when recording starts
+    }
+  };
+
   const hasValue = value.trim().length > 0 || imagePreview;
-  const activeTool = selectedTool
-    ? toolsList.find((t) => t.id === selectedTool)
-    : null;
-  const ActiveToolIcon = activeTool?.icon;
 
   return (
-    <div
+    <form
+      onSubmit={onSubmit} // Use the onSubmit prop here
       className={cn(
         "flex flex-col rounded-[28px] p-2 shadow-sm transition-colors bg-white border dark:bg-gray-800 dark:border-transparent cursor-text",
         className,
@@ -461,80 +610,60 @@ export const PromptBox = React.forwardRef<
               </TooltipContent>{" "}
             </Tooltip>
 
-            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex h-8 items-center gap-2 rounded-full p-2 text-sm text-foreground dark:text-white transition-colors hover:bg-accent dark:hover:bg-[#515151] focus-visible:outline-none focus-visible:ring-ring"
-                    >
-                      <Settings2Icon className="h-4 w-4" />
-                      {!selectedTool && "Tools"}
-                    </button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="top" showArrow={true}>
-                  <p>Explore Tools</p>
-                </TooltipContent>
-              </Tooltip>
-              <PopoverContent side="top" align="start">
-                <div className="flex flex-col gap-1">
-                  {toolsList.map((tool) => (
-                    <button
-                      key={tool.id}
-                      onClick={() => {
-                        setSelectedTool(tool.id);
-                        setIsPopoverOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-md p-2 text-left text-sm hover:bg-accent dark:hover:bg-[#515151]"
-                    >
-                      {" "}
-                      <tool.icon className="h-4 w-4" /> <span>{tool.name}</span>{" "}
-                      {tool.extra && (
-                        <span className="ml-auto text-xs text-muted-foreground dark:text-gray-400">
-                          {tool.extra}
-                        </span>
-                      )}{" "}
-                    </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {activeTool && (
-              <>
-                <div className="h-4 w-px bg-border dark:bg-gray-600" />
-                <button
-                  onClick={() => setSelectedTool(null)}
-                  className="flex h-8 items-center gap-2 rounded-full px-2 text-sm dark:hover:bg-[#3b4045] hover:bg-accent cursor-pointer dark:text-[#99ceff] text-[#2294ff] transition-colors flex-row items-center justify-center"
-                >
-                  {ActiveToolIcon && <ActiveToolIcon className="h-4 w-4" />}
-                  {activeTool.shortName}
-                  <XIcon className="h-4 w-4" />
-                </button>
-              </>
-            )}
-
             {/* MODIFIED: Right-aligned buttons container */}
             <div className="ml-auto flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-foreground dark:text-white transition-colors hover:bg-accent dark:hover:bg-[#515151] focus-visible:outline-none"
+                    onClick={handleVoiceButtonClick}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full text-foreground dark:text-white transition-colors hover:bg-accent dark:hover:bg-[#515151] focus-visible:outline-none",
+                      isRecording && "bg-red-500 hover:bg-red-600 dark:hover:bg-red-600 text-white"
+                    )}
                   >
-                    <MicIcon className="h-5 w-5" />
-                    <span className="sr-only">Record voice</span>
+                    {isRecording ? (
+                      <StopCircleIcon className="h-5 w-5" />
+                    ) : (
+                      <MicIcon className="h-5 w-5" />
+                    )}
+                    <span className="sr-only">{isRecording ? "Stop recording" : "Record voice"}</span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" showArrow={true}>
-                  <p>Record voice</p>
+                  <p>{isRecording ? "Stop recording" : "Record voice"}</p>
                 </TooltipContent>
               </Tooltip>
 
               <Tooltip>
                 <TooltipTrigger asChild>
+                  <button
+                    type="submit"
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                      isLoading && "animate-pulse",
+                      !hasValue && "opacity-50 cursor-not-allowed"
+                    )}
+                    disabled={isLoading || !hasValue}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                    >
+                      <path
+                        d="M7 11L12 6L17 11M12 18V7"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span className="sr-only">Send message</span>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" showArrow={true}>
                   <p>Send</p>
@@ -544,7 +673,7 @@ export const PromptBox = React.forwardRef<
           </div>
         </TooltipProvider>
       </div>
-    </div>
+    </form>
   );
 });
 PromptBox.displayName = "PromptBox";
