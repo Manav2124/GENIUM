@@ -80,26 +80,11 @@ const AuthCard = ({ onClose }) => {
           <div className="space-y-3">
             <button
               onClick={() => {
-                // Navigate to dashboard
-                window.location.href = '/dashboard'; // Or use router if available
-                onClose();
-              }}
-              className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center space-x-2 shadow-md"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
-              </svg>
-              <span>Go to Dashboard</span>
-            </button>
-
-            <button
-              onClick={() => {
                 // Navigate to profile
                 // For now, just close the modal
                 onClose();
               }}
-              className="w-full bg-secondary text-secondary-foreground py-3 px-4 rounded-lg hover:bg-secondary/80 transition-colors font-medium flex items-center justify-center space-x-2 shadow-md"
+              className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center space-x-2 shadow-md"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

@@ -41,9 +41,9 @@ export default function Dashboard() {
   const user = session.user;
 
   // Calculate stats
-  const totalDocuments = uploadedFiles.length;
-  const totalQueries = queries.length;
-  const recentQueries = queries.slice(-5).reverse(); // Last 5 queries
+  const totalDocuments = uploadedFiles?.length || 0;
+  const totalQueries = queries?.length || 0;
+  const recentQueries = queries ? queries.slice(-5).reverse() : []; // Last 5 queries
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -114,7 +114,7 @@ export default function Dashboard() {
             </div>
 
             {/* Recent Queries Section */}
-            {recentQueries.length > 0 && (
+            {recentQueries?.length > 0 && (
               <div className="bg-accent/10 dark:bg-accent/5 rounded-lg p-6 border border-accent/20">
                 <h3 className="text-lg font-medium mb-4 text-text-primary dark:text-white">
                   Recent Queries
@@ -143,7 +143,7 @@ export default function Dashboard() {
             )}
 
             {/* Uploaded Files Section */}
-            {uploadedFiles.length > 0 && (
+            {uploadedFiles?.length > 0 && (
               <div className="bg-accent/10 dark:bg-accent/5 rounded-lg p-6 border border-accent/20 mt-6">
                 <h3 className="text-lg font-medium mb-4 text-text-primary dark:text-white">
                   Uploaded Files
