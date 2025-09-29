@@ -369,11 +369,9 @@ export const PromptBox = React.forwardRef<
     isLoading?: boolean;
     onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; // Add onSubmit prop
   }
->(({ className, isLoading, onSubmit, ...props }, ref) => {
-  // ... all state and handlers are unchanged ...
+>(({ className, isLoading, onSubmit, value, onChange, ...props }, ref) => { // Destructure value and onChange
   const internalTextareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [value, setValue] = React.useState("");
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = React.useState(false);
 
@@ -394,11 +392,7 @@ export const PromptBox = React.forwardRef<
       const newHeight = Math.min(textarea.scrollHeight, 200);
       textarea.style.height = `${newHeight}px`;
     }
-  }, [value]);
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue(e.target.value);
-    if (props.onChange) props.onChange(e);
-  };
+  }, [value]); // Depend on the prop value
   const handlePlusClick = () => {
     fileInputRef.current?.click();
   };
@@ -479,9 +473,12 @@ export const PromptBox = React.forwardRef<
             interimTranscript += transcript;
           }
         }
-        setValue((prevValue) => prevValue + finalTranscript); // Append final transcript
-        // You might want to display interimTranscript in a separate area or update the input box dynamically
-        // For now, we'll just append the final transcript when a pause is detected.
+        // Instead of setValue, call the onChange prop
+        if (onChange) {
+          onChange({
+            target: { value: (value || '') + finalTranscript },
+          } as React.ChangeEvent<HTMLTextAreaElement>);
+        }
       };
 
       speechRecognitionRef.current.onerror = (event: SpeechRecognitionEvent) => {
@@ -495,7 +492,7 @@ export const PromptBox = React.forwardRef<
     } else {
       console.warn('Speech Recognition API not supported in this browser.');
     }
-  }, []);
+  }, [onChange, value]); // Depend on onChange and value props
 
   const startSpeechRecognition = () => {
     if (speechRecognitionRef.current) {
@@ -521,7 +518,7 @@ export const PromptBox = React.forwardRef<
     }
   };
 
-  const hasValue = value.trim().length > 0 || imagePreview;
+  const hasValue = (typeof value === 'string' && value.trim().length > 0) || imagePreview; // Use prop value and ensure it's a string
 
   return (
     <form
@@ -584,7 +581,7 @@ export const PromptBox = React.forwardRef<
         ref={internalTextareaRef}
         rows={1}
         value={value}
-        onChange={handleInputChange}
+        onChange={onChange} // Use the prop onChange directly
         placeholder="Message..."
         className="custom-scrollbar w-full resize-none border-0 bg-transparent p-3 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-gray-300 focus:ring-0 focus-visible:outline-none min-h-12"
         {...props}

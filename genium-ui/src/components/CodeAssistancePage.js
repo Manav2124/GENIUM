@@ -255,6 +255,7 @@ const CodeAssistancePage = ({ onBack }) => {
               onChange={(e) => setPrompt(e.target.value)}
               onSubmit={(e) => {
                 e.preventDefault();
+                console.log('Submitting prompt:', prompt); // Add console log
                 handleGenerateCode(prompt);
               }}
             />
