@@ -1,8 +1,16 @@
+"use client";
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import DocsPageContent from '../../components/DocsPage';
+
 export default function DocsPage() {
+  const router = useRouter();
+
+  const handleBack = () => {
+    router.back();
+  };
+
   return (
-    <div>
-      <h1>Documentation</h1>
-      <p>This is the documentation page.</p>
-    </div>
+    <DocsPageContent onBack={handleBack} />
   );
 }

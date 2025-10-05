@@ -46,7 +46,7 @@ export default async function RootLayout({ children }) {
                 ]}
                 mainLinks={[
                   { href: "/", label: "Home" },
-                  { href: "/plan", label: "Pricing" },
+                  { href: "/pricing", label: "Pricing" },
                   { href: "/docs", label: "Docs" },
                 ]}
                 legalLinks={[

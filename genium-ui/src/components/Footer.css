@@ -1,0 +1,123 @@
+/* Footer.css */
+
+.footer-container {
+  background-color: #1a1a1a; /* Dark background from image */
+  color: #ffffff;
+  padding: 4rem 0;
+  border-top-left-radius: 2rem;
+  border-top-right-radius: 2rem;
+  overflow: hidden; /* Ensures rounded corners are visible */
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.footer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+}
+
+.footer-button {
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px; /* pill shape */
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.footer-language-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px; /* pill shape */
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.footer-language-selector svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.footer-links-section {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Two columns */
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.footer-links-column h3 {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: #ffffff; /* White color for headings */
+}
+
+.footer-links-column ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links-column li {
+  margin-bottom: 0.75rem;
+}
+
+.footer-links-column a {
+  color: #ccc;
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.footer-links-column a:hover {
+  text-decoration: underline;
+}
+
+.footer-bottom {
+  border-top: 1px solid #333;
+  padding-top: 2rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.footer-back-to-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+.footer-back-to-top svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.footer-social-links {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.footer-social-links a {
+  color: #888;
+  font-size: 1rem;
+}
+
+.footer-social-links a:hover {
+  color: #fff;
+}
