@@ -775,6 +775,9 @@ greet('Genium User');
 
               {currentPage === 'document-qa' && (
                 <div className="document-qa-page flex flex-col h-full p-6 pt-32">
+                  <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white mt-8 mb-8">
+                    Document Analysis
+                  </h1>
                   <div className="w-full max-w-7xl mx-auto mb-4">
                     <button
                       onClick={handleBackToExplore}

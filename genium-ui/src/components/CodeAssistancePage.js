@@ -217,6 +217,11 @@ const CodeAssistancePage = ({ onBack }) => {
           <span className="text-lg">←</span> <span>Back to Explore</span>
         </button>
 
+        {/* Page Title */}
+        <h1 className="absolute top-32 left-1/2 transform -translate-x-1/2 text-3xl font-bold text-gray-900 dark:text-white z-10">
+          Code Assistance
+        </h1>
+
         {/* Left Sidebar */}
         <aside className="w-96 bg-gray-100 dark:bg-gray-900 shadow-md flex flex-col p-4 rounded-lg my-4 border border-gray-300 dark:border-gray-700"> {/* Added margin, rounded corners, and border */}
           {/* Theme Toggle */}

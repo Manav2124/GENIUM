@@ -13,6 +13,10 @@ const DocsPage = ({ onBack }) => {
         </button>
       </div>
 
+      {/* Page Title */}
+      <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white mt-8 mb-8">
+      </h1>
+
       <article className="prose dark:prose-invert max-w-6xl mx-auto">
         <h1>Project Documentation</h1>
 

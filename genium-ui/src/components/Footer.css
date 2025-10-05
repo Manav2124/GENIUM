@@ -3,9 +3,9 @@
 .footer-container {
   background-color: #1a1a1a; /* Dark background from image */
   color: #ffffff;
-  padding: 4rem 0;
-  border-top-left-radius: 2rem;
-  border-top-right-radius: 2rem;
+  padding: 2rem 0;
+  border-top-left-radius: 4rem;
+  border-top-right-radius: 4rem;
   overflow: hidden; /* Ensures rounded corners are visible */
 }
 
@@ -19,7 +19,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
 }
 
 .footer-button {
@@ -54,7 +54,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr); /* Two columns */
   gap: 2rem;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
 }
 
 .footer-links-column h3 {
@@ -86,7 +86,7 @@
 
 .footer-bottom {
   border-top: 1px solid #333;
-  padding-top: 2rem;
+  padding-top: 1rem;
   text-align: center;
   font-size: 0.75rem;
   color: #888;
