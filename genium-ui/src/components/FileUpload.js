@@ -302,6 +302,8 @@ const UploadingAnimation = ({ progress }) => (
     </div>
 );
 
+import { generateExamQuestionsBackend } from "../utils/api"; // Import the new API function
+
 export default function FileUpload({
     onUploadSuccess = () => {},
     onUploadError = () => {},
@@ -322,6 +324,8 @@ export default function FileUpload({
     const [status, setStatus] = useState("idle");
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState(null);
+    const [generatedQuestions, setGeneratedQuestions] = useState(null); // New state for generated questions
+    const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false); // New state for question generation loading
     const fileInputRef = useRef(null);
     const uploadIntervalRef = useRef(null);
 
@@ -550,6 +554,43 @@ const handleError = useCallback(
             simulateUpload, // Add simulateUpload to dependencies
         ]
     );
+
+    const handleGenerateQuestions = useCallback(async () => {
+        if (!file) {
+            handleError({ message: "No file uploaded to generate questions from.", code: "NO_FILE_FOR_QUESTIONS" });
+            return;
+        }
+
+        setIsGeneratingQuestions(true);
+        setGeneratedQuestions(null); // Clear previous questions
+        setError(null); // Clear previous errors
+
+        try {
+            const currentUserId = userId || (sessionStatus === 'authenticated' ? session?.user?.id : null);
+            const token = session?.accessToken;
+
+            if (!currentUserId) {
+                handleError({ message: "User not authenticated. Please log in to generate questions.", code: "AUTH_REQUIRED" });
+                setIsGeneratingQuestions(false);
+                return;
+            }
+
+            console.log(`Frontend: Generating exam questions for user ${currentUserId} from file ${file.name}`);
+            const response = await generateExamQuestionsBackend(currentUserId, token, {
+                include_answers: true, // Example: always include answers for now
+                question_types: ["MCQ", "Short Answer", "Long Answer", "True/False", "Fill in the Blanks"],
+                marks_distribution: {"2_3_marks": 2, "5_marks": 1, "10_marks": 1} // Updated to 2_3_marks
+            });
+            setGeneratedQuestions(response);
+            console.log("Frontend: Generated questions:", response);
+        } catch (err) {
+            console.error("Frontend: Error generating exam questions:", err);
+            const errorMessage = err.response?.data?.error || err.message || "Failed to generate exam questions.";
+            handleError({ message: errorMessage, code: "QUESTION_GENERATION_FAILED" });
+        } finally {
+            setIsGeneratingQuestions(false);
+        }
+    }, [file, userId, session, sessionStatus, handleError]);
 
     const handleDragOver = useCallback((e) => {
         e.preventDefault();

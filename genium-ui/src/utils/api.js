@@ -128,6 +128,73 @@ export async function askDocumentQuestion(question, token) {
 }
 
 /**
+ * Generate exam questions from the uploaded document.
+ * @param {string} userId - The user ID
+ * @param {string} token - The authentication token
+ * @param {Object} options - Options for question generation (include_answers, question_types, marks_distribution)
+ * @returns {Promise<Object>} - The generated exam questions
+ */
+export async function generateExamQuestionsBackend(userId, token, options = {}) {
+  try {
+    console.log(`Generating exam questions for user ${userId} with options:`, options);
+
+    const response = await fetch(`${API_BASE_URL}/generate-exam-questions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(options),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(errorData.error || `Request failed with status ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Generate exam questions error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Ask a question to the AI in syllabus mode.
+ * @param {string} question - The question to ask
+ * @param {string} token - The authentication token
+ * @returns {Promise<Object>} - The AI response with source confidence
+ */
+export async function askSyllabusQuestion(question, token) {
+  try {
+    console.log('Asking syllabus question:', question);
+
+    const response = await fetch(`${API_BASE_URL}/ask-syllabus`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ question: question.trim() }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Syllabus question failed' }));
+      console.error('Syllabus question error response:', errorData);
+      throw new Error(errorData.error || `Syllabus question failed with status ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Syllabus question response:', result);
+
+    return result;
+  } catch (error) {
+    console.error('Ask syllabus question error:', error);
+    throw error;
+  }
+}
+
+/**
  * Ask a question with global search (document + web)
  * @param {string} question - The question to ask
  * @param {boolean} globalSearch - Whether to include web search

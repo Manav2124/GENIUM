@@ -364,6 +364,8 @@ export default function Home() {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [lastGlobalSearchUsed, setLastGlobalSearchUsed] = useState(false);
   const [isGlobalSearchOn, setIsGlobalSearchOn] = useState(false);
+  const [isSyllabusModeOn, setIsSyllabusModeOn] = useState(false); // New state for syllabus mode
+  const [syllabusSource, setSyllabusSource] = useState(null); // New state for syllabus source confidence
 
   const [isMounted, setIsMounted] = useState(false);
 
@@ -544,6 +546,7 @@ export default function Home() {
   const handleFileUpload = useCallback((selectedFile) => {
     if (!selectedFile) return;
     setError('');
+    setFileProcessed(true); // Set fileProcessed to true on successful upload
   }, []);
 
   const handleTryGeniumClick = () => {
@@ -876,7 +879,7 @@ greet('Genium User');
                           </button>
                         )}
                       </div>
-                      <div className="h-full overflow-y-auto bg-gray-50 dark:bg-black/50 rounded-md p-4 border border-gray-200 dark:border-gray-700">
+                      <div className="h-full max-h-[500px] overflow-y-auto bg-gray-50 dark:bg-black/50 rounded-md p-4 border border-gray-200 dark:border-gray-700">
                         {/* Add CSS styles for highlighting */}
                         <style jsx>{`
                           .highlight-keyword {

@@ -114,3 +114,18 @@
 .send-button:hover {
   background-color: #0056b3;
 }
+
+.marks-suggestion {
+  font-size: 0.9em;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.trust-footer {
+  font-size: 0.8em;
+  color: #555;
+  margin-top: 10px;
+  border-top: 1px solid #eee;
+  padding-top: 5px;
+}

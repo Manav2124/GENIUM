@@ -54,13 +54,34 @@ When the user requests a project or any code:
 Follow these rules for every “create/build/generate” request.
 """
 
-def generate_code_content(user_query):
-    logging.debug(f"generate_code_content function called with query: {user_query}")
+def generate_code_content(prompt_data):
+    logging.debug(f"generate_code_content function called with data: {prompt_data}")
 
-    messages = [
-        { "role": "system", "content": SYSTEM_PROMPT },
-        { "role": "user", "content": user_query }
-    ]
+    messages = []
+    # Check if prompt_data is a string (for backward compatibility and conversational history)
+    if isinstance(prompt_data, str):
+        # Handle conversational history string
+        if "user:" in prompt_data.lower() or "assistant:" in prompt_data.lower():
+            messages.append({"role": "system", "content": SYSTEM_PROMPT})
+            # Split the string into turns
+            turns = prompt_data.strip().split('\n')
+            for turn in turns:
+                if turn.lower().startswith("user:"):
+                    messages.append({"role": "user", "content": turn[len("user:"):].strip()})
+                elif turn.lower().startswith("assistant:"):
+                    messages.append({"role": "assistant", "content": turn[len("assistant:"):].strip()})
+        else: # It's a single user query
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt_data}
+            ]
+    # Check if it's a list of dicts (standard message format)
+    elif isinstance(prompt_data, list):
+        # Assume it's already in the correct message format
+        messages = prompt_data
+        # Ensure system prompt is present
+        if not any(m['role'] == 'system' for m in messages):
+            messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 
     response_content = None
     

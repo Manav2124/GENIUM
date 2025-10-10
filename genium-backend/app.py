@@ -4,7 +4,7 @@ import tempfile
 import requests
 from datetime import datetime
 # Removed json import
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 from langchain_qdrant import QdrantVectorStore
@@ -40,6 +40,7 @@ load_dotenv(dotenv_path='../.env') # Load .env from root directory
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=["http://localhost:3000", "http://127.0.0.1:3000"])  # Enable CORS with credentials for localhost
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-key-for-dev")
 
 # Get NextAuth secret from environment variables
 NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET")
@@ -264,6 +265,132 @@ else:
 user_uploads = {} # Dictionary to track user uploads
 
 # --- Functions ---
+
+def generate_exam_questions(user_id, include_answers=False, question_types=None, marks_distribution=None):
+    """
+    Generates exam questions based on the document content for a given user.
+    """
+    if question_types is None:
+        question_types = ["MCQ", "Short Answer", "Long Answer", "True/False", "Fill in the Blanks"]
+    if marks_distribution is None:
+        marks_distribution = {"2_3_marks": 2, "5_marks": 1, "10_marks": 1} # Updated to 2_3_marks
+
+    if user_id not in vector_db or vector_db[user_id] is None:
+        raise ValueError("No document uploaded for this user.")
+
+    # Retrieve all document content for the user
+    all_docs = []
+    if isinstance(vector_db[user_id], dict) and vector_db[user_id].get("type") == "basic_memory":
+        all_docs = [doc.page_content for doc in vector_db[user_id]["documents"]]
+    else:
+        # For Qdrant/FAISS, we need to retrieve all documents. This might be inefficient for very large documents.
+        # A more robust solution would involve iterating through the vector store or having a separate document storage.
+        # For now, we'll simulate by getting a broad context.
+        # For demonstration, we'll query with a very general term to get as much context as possible.
+        print(f"Backend: Attempting to retrieve all document content for user {user_id} from vector store.")
+        try:
+            search_results = vector_db[user_id].similarity_search(query="document content", k=50) # Increased k
+            all_docs = [result.page_content for result in search_results]
+            print(f"Backend: Retrieved {len(all_docs)} document chunks for question generation.")
+        except Exception as e:
+            print(f"Backend: Error retrieving all document content from vector store: {str(e)}")
+            # Fallback to a more direct method if available, or raise error
+
+    if not all_docs:
+        raise ValueError("Could not retrieve document content for question generation.")
+
+    document_content = "\n\n".join(all_docs)
+    print(f"Backend: Total document content length for question generation: {len(document_content)} characters")
+
+    # Construct the prompt for the LLM
+    prompt_parts = [
+        SystemMessage(content="You are an AI assistant specialized in generating exam questions from academic documents."),
+        HumanMessage(content=f"""
+        Generate exam questions based on the following document content.
+        
+        Document Content:
+        ---
+        {document_content}
+        ---
+
+        Requirements for questions:
+        - Generate questions for the following marks distribution: {marks_distribution}. For example, if '2_marks': 2, generate two 2-mark questions.
+        - Support the following question types: {", ".join(question_types)}.
+        - Ensure questions are original, contextually correct, and suitable for exams.
+        - Do NOT copy sentences verbatim from the document. Rephrase and synthesize information.
+        - If headings or topics are discernible in the document, group questions by topic/chapter.
+        - For MCQ questions, provide 1 correct option and 3 plausible wrong options.
+        - {f"Include correct answers for all questions." if include_answers else "Do NOT include correct answers."}
+
+        Output format MUST be a JSON object with the following structure:
+        {{
+          "2_marks_questions": [
+            {{
+              "question": "...",
+              "type": "MCQ" | "Short Answer" | "Long Answer" | "True/False" | "Fill in the Blanks",
+              {"answer": "...", "options": ["...", "...", "...", "..."]} if "MCQ" and include_answers else ""
+              {"answer": "..."} if "Short Answer" | "Long Answer" | "True/False" | "Fill in the Blanks" and include_answers else ""
+            }},
+            ...
+          ],
+          "5_marks_questions": [...],
+          "10_marks_questions": [...]
+        }}
+        
+        If grouping by topic, the structure should be:
+        {{
+          "topic_or_chapter_1": {{
+            "2_marks_questions": [...],
+            "5_marks_questions": [...],
+            "10_marks_questions": [...]
+          }},
+          "topic_or_chapter_2": {{...}}
+        }}
+        
+        If no clear topics, use the flat structure.
+        """)
+    ]
+
+    generated_questions_json = None
+
+    if gemini_model:
+        try:
+            print("Backend: Calling Gemini model for question generation...")
+            gemini_response = gemini_model.invoke(prompt_parts)
+            generated_questions_json = gemini_response.content
+            print(f"Backend: Gemini response received (length: {len(generated_questions_json)} characters)")
+        except Exception as e:
+            print(f"Backend: Gemini API error during question generation: {e}")
+            generated_questions_json = None
+
+    if generated_questions_json is None and openai_client.api_key:
+        try:
+            print("Backend: Calling OpenAI model for question generation...")
+            openai_response = openai_client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "system", "content": prompt_parts[0].content}, {"role": "user", "content": prompt_parts[1].content}],
+                max_tokens=4000, # Increased max_tokens for potentially longer responses
+                temperature=0.7 # Higher temperature for more creative questions
+            )
+            generated_questions_json = openai_response.choices[0].message.content
+            print(f"Backend: OpenAI response received (length: {len(generated_questions_json)} characters)")
+        except Exception as e:
+            print(f"Backend: OpenAI API error during question generation: {e}")
+            generated_questions_json = None
+
+    if generated_questions_json is None:
+        raise Exception("Neither Gemini nor OpenAI API could generate exam questions. Please check API keys and service status.")
+
+    try:
+        # Attempt to parse the JSON response
+        questions_data = json.loads(generated_questions_json)
+        print("Backend: Successfully parsed generated questions JSON.")
+        return questions_data
+    except json.JSONDecodeError as e:
+        print(f"Backend: Failed to parse JSON from LLM response: {e}")
+        print(f"Backend: Raw LLM response: {generated_questions_json[:500]}...") # Log part of the raw response
+        raise ValueError("Failed to generate questions in the expected JSON format. Please try again.")
+
 
 def get_fallback_answer(query, context_available=True, global_search_enabled=False):
     """Provide a basic fallback answer when AI service is unavailable"""
@@ -1034,6 +1161,125 @@ def ask_document():
         print(f"API ask-document error: {str(e)}")
         return jsonify({"error": "An unexpected error occurred while processing your question. Please try again."}), 500
 
+@app.route('/api/ask-syllabus', methods=['POST'])
+@jwt_required
+def ask_syllabus_question_endpoint(user_id):
+    """
+    Answers questions based on the uploaded syllabus/study material for the authenticated user,
+    providing source transparency and confidence scores.
+    """
+    print(f"Backend: /api/ask-syllabus - Request received for user: {user_id}")
+
+    if user_id not in vector_db or vector_db[user_id] is None:
+        print(f"Backend: /api/ask-syllabus - No syllabus uploaded for user {user_id}")
+        return jsonify({"error": "No syllabus or study material has been uploaded yet. Please upload a PDF, DOCX, or TXT file first."}), 400
+
+    data = request.get_json()
+    if not data or 'question' not in data:
+        return jsonify({"error": "Question not provided. Please include 'question' field in your request."}), 400
+
+    question = data['question'].strip()
+    if not question:
+        return jsonify({"error": "Question cannot be empty. Please provide a valid question."}), 400
+
+    try:
+        # Predict marks before getting the answer
+        predicted_marks = predict_marks_for_question(question)
+        
+        # Get the answer and other data from the syllabus
+        answer_data = get_syllabus_answer(user_id, question)
+        
+        # Add predicted marks to the response
+        answer_data['predicted_marks'] = predicted_marks
+        
+        print(f"Backend: Successfully generated syllabus answer for user {user_id}")
+        return jsonify(answer_data), 200
+    except ValueError as ve:
+        print(f"Backend: /api/ask-syllabus - Validation Error: {str(ve)}")
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        print(f"Backend: /api/ask-syllabus - Internal Server Error: {str(e)}")
+        import traceback
+        print(f"Backend: Full traceback for ask_syllabus_question_endpoint error: {traceback.format_exc()}")
+        return jsonify({"error": "An unexpected error occurred during syllabus question answering. Please try again later."}), 500
+
+def predict_marks_for_question(question):
+    """
+    Predicts marks for a given question based on complexity.
+    """
+    question_lower = question.lower()
+    
+    # Keywords for different complexity levels
+    analytical_keywords = ['analyze', 'evaluate', 'compare', 'contrast', 'critique']
+    conceptual_keywords = ['explain', 'describe', 'define', 'discuss']
+    factual_keywords = ['what is', 'who is', 'when did', 'list', 'name']
+    
+    # Predict marks based on keywords and length
+    if any(keyword in question_lower for keyword in analytical_keywords) or len(question.split()) > 20:
+        return 10
+    elif any(keyword in question_lower for keyword in conceptual_keywords) or len(question.split()) > 10:
+        return 5
+    elif any(keyword in question_lower for keyword in factual_keywords):
+        return 2
+    else:
+        return 3 # Default for short/unclassified questions
+
+def get_syllabus_answer(user_id, query):
+    """
+    Get answer from syllabus only, with confidence and source.
+    """
+    global vector_db
+
+    if user_id not in vector_db or vector_db[user_id] is None:
+        raise ValueError("No syllabus uploaded for this user.")
+
+    # Perform similarity search
+    search_results = vector_db[user_id].similarity_search_with_score(query=query, k=5)
+
+    if not search_results:
+        return {
+            "answer": "No relevant information found in the syllabus for your question.",
+            "confidence": 0,
+            "source": "N/A"
+        }
+
+    # Get the best result
+    best_result, score = search_results[0]
+    confidence = round(score * 100, 2)
+    page_number = best_result.metadata.get('page_label', 'N/A')
+
+    # Create context for the LLM
+    context = best_result.page_content
+
+    # System prompt for the LLM
+    system_prompt = f"""
+    You are an AI assistant. Answer the user's query based ONLY on the provided syllabus context.
+    Keep the answer concise (2-5 lines).
+
+    Context from syllabus (Page {page_number}):
+    ---
+    {context}
+    ---
+    """
+
+    # Call the LLM to generate the answer
+    if gemini_model:
+        gemini_messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=query)
+        ]
+        gemini_response = gemini_model.invoke(gemini_messages)
+        answer = gemini_response.content
+    else:
+        # Fallback to a simple response if no model is available
+        answer = "AI model not available. Based on the syllabus, the information is likely on page {page_number}."
+
+    return {
+        "answer": answer,
+        "confidence": confidence,
+        "source": f"Page {page_number}"
+    }
+
 @app.route('/api/ask-google', methods=['POST'])
 def ask_google():
     try:
@@ -1054,6 +1300,39 @@ def ask_google():
         return jsonify({"error": "An unexpected error occurred while searching the web. Please try again."}), 500
 
 
+
+@app.route('/api/generate-exam-questions', methods=['POST'])
+@jwt_required
+def generate_exam_questions_endpoint(user_id):
+    """
+    Generates exam questions based on the uploaded document for the authenticated user.
+    """
+    print(f"Backend: /api/generate-exam-questions - Request received for user: {user_id}")
+    
+    if user_id not in vector_db or vector_db[user_id] is None:
+        print(f"Backend: /api/generate-exam-questions - No document uploaded for user {user_id}")
+        return jsonify({"error": "No document has been uploaded yet. Please upload a PDF, DOCX, or TXT file first."}), 400
+
+    data = request.get_json()
+    if not data:
+        data = {} # Ensure data is a dictionary even if no JSON is provided
+
+    include_answers = data.get('include_answers', False)
+    question_types = data.get('question_types', ["MCQ", "Short Answer", "Long Answer", "True/False", "Fill in the Blanks"])
+    marks_distribution = data.get('marks_distribution', {"2_3_marks": 2, "5_marks": 1, "10_marks": 1}) # Default distribution
+
+    try:
+        questions = generate_exam_questions(user_id, include_answers, question_types, marks_distribution)
+        print(f"Backend: Successfully generated {len(questions.get('2_marks_questions', []))} 2-mark, {len(questions.get('5_marks_questions', []))} 5-mark, {len(questions.get('10_marks_questions', []))} 10-mark questions for user {user_id}")
+        return jsonify(questions), 200
+    except ValueError as ve:
+        print(f"Backend: /api/generate-exam-questions - Validation Error: {str(ve)}")
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        print(f"Backend: /api/generate-exam-questions - Internal Server Error: {str(e)}")
+        import traceback
+        print(f"Backend: Full traceback for generate_exam_questions_endpoint error: {traceback.format_exc()}")
+        return jsonify({"error": "An unexpected error occurred during question generation. Please try again later."}), 500
 
 @app.route('/api/debug-token', methods=['POST'])
 def debug_token():
@@ -1164,6 +1443,66 @@ def generate_code():
         print(f"Backend: Error calling generate_code_content: {str(e)}")
         import traceback
         print(f"Backend: Full traceback for generate_code_content error: {traceback.format_exc()}")
+
+@app.route('/api/voice-query', methods=['POST'])
+def voice_query():
+    data = request.get_json()
+    if not data or 'text' not in data:
+        return jsonify({"response_text": "Please speak your query again", "success": False}), 400
+
+    text_query = data['text']
+    if not text_query.strip():
+        return jsonify({"response_text": "Please speak your query again", "success": False}), 400
+
+    # Maintain conversation history in session
+    if 'voice_history' not in session:
+        session['voice_history'] = []
+    
+    session['voice_history'].append({"role": "user", "content": text_query})
+    # Keep history to a reasonable size
+    session['voice_history'] = session['voice_history'][-10:]
+
+    # Construct prompt with history
+    prompt_with_history = ""
+    for message in session['voice_history']:
+        prompt_with_history += f"{message['role']}: {message['content']}\n"
+
+
+    try:
+        generated_content = generate_code_content(prompt_with_history)
+        
+        # Check if the AI failed to generate content
+        try:
+            # Attempt to parse as JSON to see if it's an error message
+            error_check = json.loads(generated_content)
+            if 'error' in error_check:
+                session['voice_history'].append({"role": "assistant", "content": "Error generating content."})
+                return jsonify({"response_text": "Unable to generate code for the current query", "success": False}), 500
+        except json.JSONDecodeError:
+            # Not a JSON error, so it's likely code/text
+            pass
+
+        # Simple parsing to separate text from code
+        response_text = ""
+        code_snippet = ""
+        if "```" in generated_content:
+            parts = generated_content.split("```")
+            response_text = parts[0].strip()
+            code_snippet = "```" + "```".join(parts[1:])
+        else:
+            response_text = generated_content.strip()
+
+        session['voice_history'].append({"role": "assistant", "content": generated_content})
+
+        return jsonify({
+            "response_text": response_text,
+            "code_snippet": code_snippet,
+            "success": True
+        }), 200
+
+    except Exception as e:
+        print(f"Backend: Error in voice_query: {str(e)}")
+        return jsonify({"response_text": "Unable to generate code for the current query", "success": False}), 500
         return jsonify({"error": "An unexpected error occurred during code generation."}), 500
 
 if __name__ == '__main__':

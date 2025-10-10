@@ -474,20 +474,32 @@ export const PromptBox = React.forwardRef<
           }
         }
         // Instead of setValue, call the onChange prop
+        // The final transcript is appended to the existing value
+        // The interim transcript is displayed temporarily and will be replaced
+        const currentVal = String(value || '');
+        const newValue = currentVal.replace(interimTranscript, '') + finalTranscript + interimTranscript;
+        
         if (onChange) {
           onChange({
-            target: { value: (value || '') + finalTranscript },
+            target: { value: newValue },
           } as React.ChangeEvent<HTMLTextAreaElement>);
         }
       };
 
       speechRecognitionRef.current.onerror = (event: SpeechRecognitionEvent) => {
+        // Ignore 'aborted' error, as it's often not a critical issue
+        if (event.error && event.error.error === 'aborted') {
+          console.log('Speech recognition aborted by user.');
+          setIsListening(false); // Still need to update state
+          return;
+        }
         console.error('Speech recognition error:', event.error);
         setIsListening(false);
       };
 
       speechRecognitionRef.current.onend = () => {
         setIsListening(false);
+        console.log('Speech recognition ended.');
       };
     } else {
       console.warn('Speech Recognition API not supported in this browser.');
