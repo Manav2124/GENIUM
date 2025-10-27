@@ -1,14 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
+import * as React from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { cn } from '@/lib/utils';
+import { Settings, CreditCard, FileText, LogOut, User, History } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function Profile({ onLoginClick }) {
   const { data: session, status } = useSession();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [isOpen, setIsOpen] = React.useState(false);
   const router = useRouter();
 
   if (status === 'loading') {
@@ -33,118 +42,131 @@ export default function Profile({ onLoginClick }) {
 
   return (
     <div className="relative">
-      <button
-        onClick={() => setDropdownOpen(!dropdownOpen)}
-        className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors duration-200"
-      >
-        <img
-          src={avatarUrl}
-          alt="User Avatar"
-          className="w-10 h-10 rounded-full border-2 border-transparent hover:border-primary/20 transition-colors duration-200"
-        />
-        <span className="hidden md:block truncate max-w-32">{user.name || user.username || 'User'}</span>
-        <svg
-          className={`w-4 h-4 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+      <DropdownMenu onOpenChange={setIsOpen}>
+        <div className="group relative">
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-16 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 hover:shadow-sm transition-all duration-200 focus:outline-none"
+            >
+              <div className="text-left flex-1">
+                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100 tracking-tight leading-tight">
+                  {user.name || user.username || 'User'}
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 tracking-tight leading-tight">
+                  Welcome back!
+                </div>
+              </div>
+              <div className="relative">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 p-0.5">
+                  <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-zinc-900">
+                    <Image
+                      src={avatarUrl}
+                      alt={user.name || user.username || 'User'}
+                      width={36}
+                      height={36}
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
 
-      {dropdownOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-          <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button">
-            <div className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200">
-              <img
-                src={avatarUrl}
-                alt="User Avatar"
-                className="w-8 h-8 rounded-full mr-3"
+          {/* Bending line indicator on the right */}
+          <div
+            className={cn(
+              "absolute -right-3 top-1/2 -translate-y-1/2 transition-all duration-200",
+              isOpen
+                ? "opacity-100"
+                : "opacity-60 group-hover:opacity-100"
+            )}
+          >
+            <svg
+              width="12"
+              height="24"
+              viewBox="0 0 12 24"
+              fill="none"
+              className={cn(
+                "transition-all duration-200",
+                isOpen
+                  ? "text-blue-500 dark:text-blue-400 scale-110"
+                  : "text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300"
+              )}
+              aria-hidden="true"
+            >
+              <path
+                d="M2 4C6 8 6 16 2 20"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                fill="none"
               />
+            </svg>
+          </div>
+
+          <DropdownMenuContent
+            align="end"
+            sideOffset={4}
+            className="w-64 p-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl shadow-xl shadow-zinc-900/5 dark:shadow-zinc-950/20
+                    data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-top-right"
+          >
+            <div className="flex items-center p-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 p-0.5 mr-3">
+                <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-zinc-900">
+                  <Image
+                    src={avatarUrl}
+                    alt={user.name || user.username || 'User'}
+                    width={36}
+                    height={36}
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                </div>
+              </div>
               <div>
-                <p className="font-medium">{user.name || user.username || 'User'}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Welcome back!</p>
+                <p className="font-medium text-zinc-900 dark:text-zinc-100">{user.name || user.username || 'User'}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Welcome back!</p>
               </div>
             </div>
-            <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-            <button
-              onClick={() => {
-                setDropdownOpen(false);
-                setProfileModalOpen(true);
-              }}
-              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              role="menuitem"
-            >
-              <svg className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Profile
-            </button>
-            <button
-              onClick={() => {
-                setDropdownOpen(false);
-                router.push('/dashboard');
-              }}
-              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              role="menuitem"
-            >
-              <svg className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              History
-            </button>
-            <button
-              onClick={() => {
-                setDropdownOpen(false);
-                signOut();
-              }}
-              className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-              role="menuitem"
-            >
-              <svg className="w-4 h-4 mr-3 text-red-400 dark:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Logout
-            </button>
-          </div>
-        </div>
-      )}
+            <DropdownMenuSeparator className="my-3 bg-gradient-to-r from-transparent via-zinc-200 to-transparent dark:via-zinc-800" />
+            <div className="space-y-1">
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center p-3 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60 rounded-xl transition-all duration-200 cursor-pointer group hover:shadow-sm border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-700/50"
+                >
+                  <div className="flex items-center gap-2 flex-1">
+                    <History className="w-4 h-4" />
+                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 tracking-tight leading-tight whitespace-nowrap group-hover:text-zinc-950 dark:group-hover:text-zinc-50 transition-colors">
+                      History
+                    </span>
+                  </div>
+                </Link>
+              </DropdownMenuItem>
+            </div>
 
-      <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
-        <DialogContent className="sm:max-w-[280px] bg-white dark:bg-gray-800 p-0 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="relative bg-gradient-to-br from-blue-500 to-purple-600 h-20 flex items-center justify-center">
-            <img
-              src={avatarUrl}
-              alt="User Avatar"
-              className="w-24 h-24 rounded-full border-4 border-white dark:border-gray-800 shadow-lg object-cover absolute -bottom-12"
-            />
-          </div>
-          <div className="pt-14 pb-6 px-4 flex flex-col items-center text-center">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-              {user.name || user.username || 'User'}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              {user.email}
-            </p>
+            <DropdownMenuSeparator className="my-3 bg-gradient-to-r from-transparent via-zinc-200 to-transparent dark:via-zinc-800" />
 
-            <div className="w-full px-2 mt-4">
+            <DropdownMenuItem asChild>
               <button
+                type="button"
                 onClick={() => {
-                  setProfileModalOpen(false);
+                  setIsOpen(false);
                   signOut();
                 }}
-                className="w-full flex items-center justify-center px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors duration-200 shadow-md text-base"
+                className="w-full flex items-center gap-3 p-3 duration-200 bg-red-500/10 rounded-xl hover:bg-red-500/20 cursor-pointer border border-transparent hover:border-red-500/30 hover:shadow-sm transition-all group"
               >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Logout
+                <LogOut className="w-4 h-4 text-red-500 group-hover:text-red-600" />
+                <span className="text-sm font-medium text-red-500 group-hover:text-red-600">
+                  Logout
+                </span>
               </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </div>
+      </DropdownMenu>
+
     </div>
   );
 }
