@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation'; // Import useRouter
+import { renderCanvas } from '../components/ui/canvas'; // Import renderCanvas
 
 // Dynamically import components that might cause SSR issues
 const ThemeSwitcher = dynamic(() => import('../components/ThemeSwitcher'), { ssr: false });
@@ -372,7 +373,15 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
     setIsMounted(true);
-  }, []);
+    if (currentPage === 'overview') {
+      renderCanvas(); // Initialize canvas on component mount only for overview page
+    }
+    return () => {
+      // Optionally, add a cleanup function to stop the canvas animation when the component unmounts or page changes
+      // For now, we'll let it run, but for performance, you might want to stop it.
+      // stopCanvas();
+    };
+  }, [currentPage]);
 
   useEffect(() => {
     if (isClient && typeof window !== 'undefined') {
@@ -680,20 +689,26 @@ export default function Home() {
             <main className={`${showAuthModal ? 'blur-active' : ''}`}>
               {currentPage === 'overview' && (
                 <>
-                  <section className="flex flex-col items-center justify-center text-center pt-48 pb-16 px-6 max-w-3xl mx-auto">
-                    <div className="text-5xl md:text-7xl font-medium mb-4 text-text-primary dark:text-white font-roboto flex flex-col items-center">
-                      <span>Understand</span>
-                      <span className="gradient-text">anything</span>
-                    </div>
-                    <p className="text-lg text-text-secondary dark:text-gray-300 mb-8 max-w-xl">
-                      Your research and thinking partner, grounded in the information that you trust, built with the latest GENIUM models.
-                    </p>
-                    <div className="flex justify-center">
-                      <WrapButton className="mt-4" onClick={handleTryGeniumClick}>
-                        Try Genium
-                      </WrapButton>
+                  <section className="relative flex flex-col items-center justify-center text-center pt-48 pb-16 px-6 max-w-3xl mx-auto">
+                    <div className="z-10"> {/* Add z-index to keep content above canvas */}
+                      <div className="text-5xl md:text-7xl font-medium mb-4 text-text-primary dark:text-white font-roboto flex flex-col items-center">
+                        <span>Understand</span>
+                        <span className="gradient-text">anything</span>
+                      </div>
+                      <p className="text-lg text-text-secondary dark:text-gray-300 mb-8 max-w-xl">
+                        Your research and thinking partner, grounded in the information that you trust, built with the latest GENIUM models.
+                      </p>
+                      <div className="flex justify-center">
+                        <WrapButton className="mt-4" onClick={handleTryGeniumClick}>
+                          Try Genium
+                        </WrapButton>
+                      </div>
                     </div>
                   </section>
+                  <canvas
+                    className="bg-skin-base pointer-events-none absolute inset-0"
+                    id="canvas"
+                  ></canvas>
 
                   <section className="py-12 bg-surface dark:bg-surface-dark">
                     <div className="features-container">
