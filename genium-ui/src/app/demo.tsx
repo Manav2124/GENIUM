@@ -1,6 +1,5 @@
-"use client";
 import Featured_05 from "@/components/ui/globe-feature-section";
 
-export function Footer() {
+export default function DemoOne() {
   return <Featured_05 />;
 }
