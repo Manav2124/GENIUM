@@ -1,3 +1,4 @@
+'use client';
 import { Inter } from 'next/font/google';
 import './global.css'
 import SessionProviderWrapper from '../components/SessionProviderWrapper';
@@ -9,14 +10,9 @@ import { Github, Twitter, Youtube } from 'lucide-react';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata = {
-  title: 'Genium AI',
-  description: 'AI-powered document analysis and code assistance',
-};
 
-export default async function RootLayout({ children }) {
-  const session = await getSession();
-  const userId = session?.user?.id || null;
+export default function RootLayout({ children }) {
+  const userId = null;
 
   return (
     <html lang="en" suppressHydrationWarning>
